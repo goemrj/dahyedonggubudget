@@ -410,16 +410,17 @@
 // 복사한 값을 아래에 그대로 붙여넣어줘.
 // ============================================================
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBQF--V0Bjfa7xLjxCXBwcmxYnMWzps10Q",
+  authDomain: "dahyedonggubudget.firebaseapp.com",
+  projectId: "dahyedonggubudget",
+  storageBucket: "dahyedonggubudget.firebasestorage.app",
+  messagingSenderId: "583537435324",
+  appId: "1:583537435324:web:87fd08a9af68cbd87b26b9",
+  measurementId: "G-DXMC9JSJSL"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const docRef = db.collection('gagyebu').doc('shared');
+const docRef = db.collection('sharedBudgets').doc('dahye-donggu');
 // ============================================================
 
 const CAT_COLORS = {
