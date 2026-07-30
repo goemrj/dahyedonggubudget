@@ -2,9 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💰</text></svg>">
 <title>우리 가계부</title>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
   :root{
     color-scheme: light;
@@ -22,8 +21,7 @@
   }
   .wrap{max-width:920px; margin:0 auto;}
   h1{font-size:22px; margin:0 0 4px;}
-  .subtitle{color:var(--sub); font-size:13px; margin-bottom:6px;}
-  .sync-status{color:var(--sub); font-size:11.5px; margin-bottom:24px;}
+  .subtitle{color:var(--sub); font-size:13px; margin-bottom:24px;}
   .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:28px;}
   .card{background:var(--card); border-radius:12px; padding:16px 18px; box-shadow:0 1px 3px rgba(0,0,0,.06);}
   .card .label{font-size:12px; color:var(--sub); margin-bottom:6px;}
@@ -136,27 +134,29 @@
     width:100%; border:1px solid var(--line); border-radius:8px; padding:9px 10px;
     font-size:12.5px; font-family:inherit; background:#fafbfc; resize:vertical;
   }
-  #loadingOverlay{max-width:420px;margin:100px auto;text-align:center;color:var(--sub);font-size:14px;line-height:1.6;}
+
+  .sync-status{
+    display:inline-flex; align-items:center; gap:7px; margin:-14px 0 20px;
+    padding:6px 10px; border-radius:999px; font-size:12px;
+    background:#eef1f6; color:var(--sub);
+  }
+  .sync-status.ok{background:#e8f5ec; color:#26734d;}
+  .sync-status.saving{background:#fff5d9; color:#8a6512;}
+  .sync-status.error{background:#fdeaea; color:#a33a4a;}
+  .sync-dot{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block;}
+
 </style>
 </head>
 <body>
-
-<div id="loadingOverlay">불러오는 중...</div>
-
-<div class="wrap" id="mainWrap" style="display:none;">
+<div class="wrap">
 
   <h1>우리 가계부</h1>
   <div class="subtitle" id="subtitle"></div>
-  <div class="sync-status" id="syncStatus"></div>
+  <div class="sync-status" id="syncStatus"><span class="sync-dot"></span><span>Firestore 연결 중...</span></div>
 
   <div class="tabs">
     <button class="tab-btn" id="tabBtnMonthly" onclick="switchTab('monthly')">월 사용 내역</button>
     <button class="tab-btn" id="tabBtnAssets" onclick="switchTab('assets')">자산 현황</button>
-  </div>
-
-  <div id="seedDataBar" style="display:none; background:#fff8e6; border:1px solid #f0d98c; border-radius:10px; padding:12px 16px; margin-bottom:18px; font-size:13px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-    <span>아직 저장된 데이터가 없어요. 다혜가 처음에 정리해둔 7월 데이터(거래·고정지출·저축·자산)를 한 번에 불러올까요?</span>
-    <button class="add-data-btn" style="font-size:12.5px;padding:8px 14px;background:#c9a400;" onclick="loadSeedData()">초기 데이터 불러오기</button>
   </div>
 
   <div class="modal-overlay" id="addModalOverlay" onclick="if(event.target===this) closeAddModal()">
@@ -295,7 +295,7 @@
 
     <div style="margin-top:24px; padding-top:20px; border-top:1px dashed var(--line);">
       <h2 style="font-size:14px; margin:0 0 14px;"><span class="dot"></span>자산 추이</h2>
-      <div id="assetTrendChart" style="display:flex; align-items:stretch; gap:18px; height:200px; overflow-x:auto; overflow-y:hidden; padding:6px 2px;"></div>
+      <div id="assetTrendChart" style="display:flex; align-items:flex-end; gap:18px; min-height:220px; overflow-x:auto; overflow-y:visible; padding:30px 8px 8px;"></div>
     </div>
   </section>
   </div>
@@ -372,18 +372,18 @@
     <section>
       <h2><span class="dot"></span>고정지출 (결제일 기준)</h2>
       <table>
-        <thead><tr><th>결제일</th><th>내용</th><th class="num">금액</th><th>구분</th><th></th></tr></thead>
+        <thead><tr><th>결제일</th><th>내용</th><th class="num">금액</th><th></th></tr></thead>
         <tbody id="fixedTableBody"></tbody>
-        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="fixedTotal">0</td><td></td><td></td></tr></tfoot>
+        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="fixedTotal">0</td><td></td></tr></tfoot>
       </table>
     </section>
 
     <section>
       <h2><span class="dot"></span>저축 · 투자</h2>
       <table>
-        <thead><tr><th>일자</th><th>내용</th><th class="num">금액</th><th>구분</th><th></th></tr></thead>
+        <thead><tr><th>일자</th><th>내용</th><th class="num">금액</th><th></th></tr></thead>
         <tbody id="savingTableBody"></tbody>
-        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="savingTotal">0</td><td></td><td></td></tr></tfoot>
+        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="savingTotal">0</td><td></td></tr></tfoot>
       </table>
     </section>
   </div>
@@ -402,18 +402,15 @@
       <tfoot><tr class="total"><td colspan="3" id="txTotalLabel">총합계</td><td class="num" id="txTotal">0</td><td></td><td></td></tr></tfoot>
     </table>
     <datalist id="catlist"></datalist>
-    <div class="hint">상단 "데이터 추가" 버튼으로 새 거래를 넣으면 위 요약·그래프·합계가 자동으로 다시 계산돼요. 다혜·동구 중 누가 열어도 같은 데이터가 실시간으로 동기화돼요.</div>
+    <div class="hint">상단 "데이터 추가" 버튼으로 새 거래를 넣으면 위 요약·그래프·합계가 자동으로 다시 계산돼요.</div>
   </section>
   </div>
 
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script>
-// ============================================================
-// Firebase 설정 — 다혜의 Firebase 프로젝트 값으로 채워야 하는 부분
-// Firebase 콘솔 > 프로젝트 설정 > 일반 > "내 앱" > SDK 설정 및 구성 에서
-// 복사한 값을 아래에 그대로 붙여넣어줘.
-// ============================================================
 const firebaseConfig = {
   apiKey: "AIzaSyBQF--V0Bjfa7xLjxCXBwcmxYnMWzps10Q",
   authDomain: "dahyedonggubudget.firebaseapp.com",
@@ -423,10 +420,22 @@ const firebaseConfig = {
   appId: "1:583537435324:web:87fd08a9af68cbd87b26b9",
   measurementId: "G-DXMC9JSJSL"
 };
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const docRef = db.collection('sharedBudgets').doc('dahye-donggu');
-// ============================================================
+const budgetDoc = db.collection('sharedBudgets').doc('dahye-donggu');
+let firestoreReady = false;
+let saveTimer = null;
+let applyingRemote = false;
+let currentTab = 'monthly';
+
+function setSyncStatus(message, state=''){
+  const el = document.getElementById('syncStatus');
+  if(!el) return;
+  el.className = 'sync-status' + (state ? ' ' + state : '');
+  el.innerHTML = '<span class="sync-dot"></span><span>' + message + '</span>';
+}
+
 
 const CAT_COLORS = {
   '식사':'#ffd6b0', '생활용품':'#c3ecd0', '장보기':'#bfe8e3', '쇼핑':'#e3d3f5',
@@ -493,20 +502,20 @@ const DEFAULT_DATA = {
     {date:'07월 30일', cat:'장보기', detail:'맥주', amount:27350, who:'공동'}
   ],
   fixedExpenses: [
-    {day:'', name:'교통', amount:81850, who:'다혜'},
-    {day:'10일', name:'통신', amount:63065, who:'다혜'},
-    {day:'말일', name:'애플', amount:3300, who:'다혜'},
-    {day:'말일', name:'가스비', amount:23380, who:'다혜'},
-    {day:'24일', name:'관리비', amount:137360, who:'다혜'},
-    {day:'6일', name:'보험', amount:174887, who:'다혜'},
-    {day:'18일', name:'배민클럽', amount:1990, who:'다혜'},
-    {day:'12일', name:'디즈니플러스', amount:9900, who:'다혜'},
-    {day:'20일', name:'네이버플러스', amount:4900, who:'다혜'}
+    {day:'', name:'교통', amount:81850},
+    {day:'10일', name:'통신', amount:63065},
+    {day:'말일', name:'애플', amount:3300},
+    {day:'말일', name:'가스비', amount:23380},
+    {day:'24일', name:'관리비', amount:137360},
+    {day:'6일', name:'보험', amount:174887},
+    {day:'18일', name:'배민클럽', amount:1990},
+    {day:'12일', name:'디즈니플러스', amount:9900},
+    {day:'20일', name:'네이버플러스', amount:4900}
   ],
   savings: [
-    {day:'30일', name:'주택청약', amount:50000, who:'다혜'},
-    {day:'말일', name:'청년도약계좌', amount:700000, who:'다혜'},
-    {day:'말일', name:'장기펀드', amount:500000, who:'다혜'}
+    {day:'30일', name:'주택청약', amount:50000},
+    {day:'말일', name:'청년도약계좌', amount:700000},
+    {day:'말일', name:'장기펀드', amount:500000}
   ],
   assetAsOf: '2026-07-30',
   assets: [
@@ -528,80 +537,96 @@ DEFAULT_DATA.assetSnapshots = [
   {month:'7', asOf: DEFAULT_DATA.assetAsOf, assets: JSON.parse(JSON.stringify(DEFAULT_DATA.assets))}
 ];
 
-function migrateStore(parsed){
-  if(!parsed.assets) parsed.assets = JSON.parse(JSON.stringify(DEFAULT_DATA.assets));
-  if(!parsed.assetAsOf) parsed.assetAsOf = DEFAULT_DATA.assetAsOf;
-  if(!parsed.assetSnapshots) parsed.assetSnapshots = JSON.parse(JSON.stringify(DEFAULT_DATA.assetSnapshots));
-  if(parsed.manual && parsed.manual.consumption !== undefined){
-    parsed.manual = { '7': { consumption: parsed.manual.consumption, outflow: parsed.manual.outflow, income: 0 } };
+function normalizeStore(raw){
+  const parsed = raw && raw.payload ? raw.payload : raw;
+  const normalized = parsed && typeof parsed === 'object'
+    ? JSON.parse(JSON.stringify(parsed))
+    : JSON.parse(JSON.stringify(DEFAULT_DATA));
+
+  if(!normalized.transactions) normalized.transactions = [];
+  if(!normalized.fixedExpenses) normalized.fixedExpenses = [];
+  if(!normalized.savings) normalized.savings = [];
+  if(!normalized.assets) normalized.assets = JSON.parse(JSON.stringify(DEFAULT_DATA.assets));
+  if(!normalized.assetAsOf) normalized.assetAsOf = DEFAULT_DATA.assetAsOf;
+  if(!normalized.assetSnapshots) normalized.assetSnapshots = JSON.parse(JSON.stringify(DEFAULT_DATA.assetSnapshots));
+
+  if(normalized.manual && normalized.manual.consumption !== undefined){
+    normalized.manual = {
+      '7': {
+        consumption: normalized.manual.consumption,
+        outflow: normalized.manual.outflow,
+        income: 0
+      }
+    };
   }
-  if(!parsed.manual) parsed.manual = JSON.parse(JSON.stringify(DEFAULT_DATA.manual));
-  Object.keys(parsed.manual).forEach(mk=>{ if(parsed.manual[mk].income === undefined) parsed.manual[mk].income = 0; });
-  if(!Array.isArray(parsed.transactions)) parsed.transactions = [];
-  if(!Array.isArray(parsed.fixedExpenses)) parsed.fixedExpenses = [];
-  if(!Array.isArray(parsed.savings)) parsed.savings = [];
-  parsed.fixedExpenses.forEach(f=>{ if(!f.who) f.who = '다혜'; });
-  parsed.savings.forEach(f=>{ if(!f.who) f.who = '다혜'; });
-  return parsed;
+  if(!normalized.manual) normalized.manual = JSON.parse(JSON.stringify(DEFAULT_DATA.manual));
+  Object.keys(normalized.manual).forEach(mk=>{
+    if(normalized.manual[mk].income === undefined) normalized.manual[mk].income = 0;
+  });
+  return normalized;
 }
 
-let store = null;
-let firstLoadDone = false;
+let store = normalizeStore(DEFAULT_DATA);
 
-function setSyncStatus(state, extra){
-  const el = document.getElementById('syncStatus');
-  if(!el) return;
-  const now = new Date();
-  const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-  if(state === 'synced') el.textContent = `🟢 실시간 동기화 중 (${t} 기준)`;
-  else if(state === 'saving') el.textContent = '⏳ 저장 중...';
-  else if(state === 'error') el.textContent = '🔴 동기화 오류 - 인터넷 연결과 Firebase 설정을 확인해줘' + (extra ? ` (${extra})` : '');
-}
-
-function loadSeedData(){
-  if(!confirm('다혜가 정리해둔 7월 초기 데이터(거래 39건, 고정지출, 저축, 자산 12건)를 지금 데이터 위에 덮어씌울까요?\n이미 입력한 내용이 있다면 사라지니, 정말 비어있을 때만 눌러줘.')) return;
-  store = JSON.parse(JSON.stringify(DEFAULT_DATA));
-  save();
-  render();
+async function writeStoreNow(){
+  if(!firestoreReady || applyingRemote) return;
+  setSyncStatus('Firestore에 저장 중...', 'saving');
+  try{
+    await budgetDoc.set({
+      payload: store,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    setSyncStatus('Firestore 저장 완료 · 실시간 공유 중', 'ok');
+  }catch(error){
+    console.error('Firestore 저장 실패:', error);
+    setSyncStatus('저장 실패: ' + (error.code || error.message || '알 수 없는 오류'), 'error');
+  }
 }
 
 function save(){
-  if(!store) return;
-  setSyncStatus('saving');
-  docRef.set(store).then(()=>{
-    setSyncStatus('synced');
-  }).catch(err=>{
-    console.error('저장 실패', err);
-    setSyncStatus('error', err.message);
-    alert('저장에 실패했어. 인터넷 연결과 Firebase 설정을 확인하고 다시 시도해줘.\n(' + err.message + ')');
-  });
+  if(!firestoreReady){
+    setSyncStatus('아직 Firestore에 연결 중입니다', 'saving');
+    return;
+  }
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(writeStoreNow, 250);
 }
 
-docRef.onSnapshot(snap=>{
-  if(snap.exists){
-    store = migrateStore(snap.data());
-  } else {
-    store = JSON.parse(JSON.stringify(DEFAULT_DATA));
-    docRef.set(store).catch(err=>console.error('초기 데이터 생성 실패', err));
+async function initFirestore(){
+  setSyncStatus('Firestore 연결 중...');
+  try{
+    const first = await budgetDoc.get();
+    if(!first.exists){
+      await budgetDoc.set({
+        payload: store,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }else{
+      store = normalizeStore(first.data());
+    }
+
+    firestoreReady = true;
+    render();
+    switchTab(currentTab || 'monthly');
+    setSyncStatus('Firestore 연결됨 · 두 기기에서 실시간 공유', 'ok');
+
+    budgetDoc.onSnapshot(snapshot=>{
+      if(!snapshot.exists) return;
+      applyingRemote = true;
+      store = normalizeStore(snapshot.data());
+      render();
+      switchTab(currentTab || 'monthly');
+      applyingRemote = false;
+      setSyncStatus('Firestore 동기화 완료 · 실시간 공유 중', 'ok');
+    }, error=>{
+      console.error('Firestore 실시간 수신 실패:', error);
+      setSyncStatus('실시간 연결 실패: ' + (error.code || error.message || '알 수 없는 오류'), 'error');
+    });
+  }catch(error){
+    console.error('Firestore 초기화 실패:', error);
+    setSyncStatus('Firestore 연결 실패: ' + (error.code || error.message || '알 수 없는 오류'), 'error');
   }
-  if(!firstLoadDone){
-    firstLoadDone = true;
-    document.getElementById('loadingOverlay').style.display = 'none';
-    document.getElementById('mainWrap').style.display = '';
-    bindManualCard('cardConsumption','consumption');
-    bindManualCard('cardOutflow','outflow');
-    bindManualCard('cardIncome','income');
-    document.getElementById('assetSnapshotMonth').value = new Date().getMonth()+1;
-    switchTab('monthly');
-  }
-  setSyncStatus('synced');
-  render();
-}, err=>{
-  console.error('동기화 오류', err);
-  document.getElementById('loadingOverlay').innerHTML =
-    '연결에 실패했어.<br>Firebase 설정(firebaseConfig)과 Firestore 보안 규칙, 인터넷 연결을 확인해줘.<br>' +
-    '<span style="font-size:12px;color:#b23b3b;">' + err.message + '</span>';
-});
+}
 
 function deleteTransaction(i){
   store.transactions.splice(i,1);
@@ -618,9 +643,8 @@ function saveEditFixed(i){
   const day = document.getElementById('edit_fx_day_'+i).value.trim();
   const name = document.getElementById('edit_fx_name_'+i).value.trim();
   const amount = Number(document.getElementById('edit_fx_amount_'+i).value);
-  const who = document.getElementById('edit_fx_who_'+i).value;
   if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
-  store.fixedExpenses[i] = {day, name, amount, who};
+  store.fixedExpenses[i] = {day, name, amount};
   save();
   editingFixedIndex = null;
   render();
@@ -637,9 +661,8 @@ function saveEditSaving(i){
   const day = document.getElementById('edit_sv_day_'+i).value.trim();
   const name = document.getElementById('edit_sv_name_'+i).value.trim();
   const amount = Number(document.getElementById('edit_sv_amount_'+i).value);
-  const who = document.getElementById('edit_sv_who_'+i).value;
   if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
-  store.savings[i] = {day, name, amount, who};
+  store.savings[i] = {day, name, amount};
   save();
   editingSavingIndex = null;
   render();
@@ -728,15 +751,16 @@ function renderAssetTrend(){
   const maxV = Math.max(...totals, 1);
   el.innerHTML = snaps.map((s,idx)=>{
     const v = totals[idx];
-    const h = Math.max(6, (v/maxV*120));
-    return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:76px;height:100%;box-sizing:border-box;">
-      <div style="font-size:11px;color:var(--sub);margin-bottom:4px;white-space:nowrap;">${fmt(v)}</div>
-      <div style="width:36px;height:${h}px;background:linear-gradient(180deg,#c9d6f7,#9db3ea);border-radius:6px 6px 0 0;flex-shrink:0;"></div>
-      <div style="font-size:12px;margin-top:6px;font-weight:600;white-space:nowrap;">${s.month}월</div>
+    const h = Math.max(6, (v/maxV*140));
+    return `<div style="display:flex;flex-direction:column;align-items:center;min-width:56px;">
+      <div style="font-size:10.5px;color:var(--sub);margin-bottom:4px;white-space:nowrap;">${fmt(v)}</div>
+      <div style="width:36px;height:${h}px;background:linear-gradient(180deg,#c9d6f7,#9db3ea);border-radius:6px 6px 0 0;"></div>
+      <div style="font-size:12px;margin-top:6px;font-weight:600;">${s.month}월</div>
     </div>`;
   }).join('');
 }
 function switchTab(tab){
+  currentTab = tab;
   document.getElementById('tabAssets').classList.toggle('active', tab==='assets');
   document.getElementById('tabMonthly').classList.toggle('active', tab==='monthly');
   document.getElementById('tabBtnAssets').classList.toggle('active', tab==='assets');
@@ -789,28 +813,14 @@ function renderAddModalFields(){
       <div class="modal-grid">
         <div class="modal-field"><label>결제일</label><input type="text" id="am_fx_day" placeholder="예: 10일"></div>
         <div class="modal-field"><label>내용</label><input type="text" id="am_fx_name" placeholder="예: 통신비"></div>
-        <div class="modal-field"><label>금액</label><input type="number" id="am_fx_amount" placeholder="금액"></div>
-        <div class="modal-field"><label>구분</label>
-          <select id="am_fx_who">
-            <option value="다혜">다혜</option>
-            <option value="동구">동구</option>
-            <option value="공동">공동</option>
-          </select>
-        </div>
+        <div class="modal-field full"><label>금액</label><input type="number" id="am_fx_amount" placeholder="금액"></div>
       </div>`;
   } else if(type === 'saving'){
     el.innerHTML = `
       <div class="modal-grid">
         <div class="modal-field"><label>일자</label><input type="text" id="am_sv_day" placeholder="예: 말일"></div>
         <div class="modal-field"><label>내용</label><input type="text" id="am_sv_name" placeholder="예: 적금"></div>
-        <div class="modal-field"><label>금액</label><input type="number" id="am_sv_amount" placeholder="금액"></div>
-        <div class="modal-field"><label>구분</label>
-          <select id="am_sv_who">
-            <option value="다혜">다혜</option>
-            <option value="동구">동구</option>
-            <option value="공동">공동</option>
-          </select>
-        </div>
+        <div class="modal-field full"><label>금액</label><input type="number" id="am_sv_amount" placeholder="금액"></div>
       </div>`;
   }
 }
@@ -843,16 +853,14 @@ function submitAddModal(){
     const day = document.getElementById('am_fx_day').value.trim();
     const name = document.getElementById('am_fx_name').value.trim();
     const amount = Number(document.getElementById('am_fx_amount').value);
-    const who = document.getElementById('am_fx_who').value;
     if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
-    store.fixedExpenses.push({day, name, amount, who});
+    store.fixedExpenses.push({day, name, amount});
   } else if(type === 'saving'){
     const day = document.getElementById('am_sv_day').value.trim();
     const name = document.getElementById('am_sv_name').value.trim();
     const amount = Number(document.getElementById('am_sv_amount').value);
-    const who = document.getElementById('am_sv_who').value;
     if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
-    store.savings.push({day, name, amount, who});
+    store.savings.push({day, name, amount});
   }
   save();
   closeAddModal();
@@ -993,12 +1001,7 @@ function bindManualCard(id, key){
 }
 
 function render(){
-  if(!store) return;
   const tx = store.transactions;
-
-  const isEmptyStore = tx.length === 0 && (store.fixedExpenses||[]).length === 0 &&
-    (store.savings||[]).length === 0 && (store.assets||[]).length === 0;
-  document.getElementById('seedDataBar').style.display = isEmptyStore ? 'flex' : 'none';
 
   const allMonths = Array.from(new Set(tx.map(t=>extractMonth(t.date)).filter(Boolean))).sort((a,b)=>Number(a)-Number(b));
   if(selectedMonth === null && allMonths.length) selectedMonth = allMonths[allMonths.length-1];
@@ -1030,7 +1033,8 @@ function render(){
     monthIncome = Number(mm.income||0);
   }
 
-  document.getElementById('subtitle').textContent = '지출 내역 · 고정지출 · 저축 요약 (다혜 · 동구 실시간 공유)';
+  const now = new Date();
+  document.getElementById('subtitle').textContent = '지출 내역 · 고정지출 · 저축 요약 (최근 업데이트: ' + now.getFullYear() + '.' + (now.getMonth()+1) + '.' + now.getDate() + ')';
 
   // assets
   const assetSnapshots = (store.assetSnapshots || []).slice().sort((a,b)=>Number(a.month)-Number(b.month));
@@ -1121,31 +1125,14 @@ function render(){
       return `<div class="ratio-seg" style="width:${pct}%;background:${st.bg};color:${st.fg};">${who} ${fmt(amt)} (${pct.toFixed(1)}%)</div>`;
     }).join('');
 
-  // fixed expenses (교통 always pinned top, rest sorted by 결제일 ascending)
+  // fixed expenses
   const fixedTotal = store.fixedExpenses.reduce((s,f)=>s+Number(f.amount||0),0);
-  function parseFixedDay(day){
-    if(day === '말일') return 99;
-    const m = String(day||'').match(/(\d{1,2})/);
-    return m ? parseInt(m[1],10) : 200;
-  }
-  const fixedWithIndex = store.fixedExpenses.map((f,i)=>({f,i}));
-  const trafficItems = fixedWithIndex.filter(x=>x.f.name==='교통');
-  const otherFixedItems = fixedWithIndex.filter(x=>x.f.name!=='교통')
-    .sort((a,b)=>parseFixedDay(a.f.day)-parseFixedDay(b.f.day));
-  const sortedFixed = [...trafficItems, ...otherFixedItems];
-  document.getElementById('fixedTableBody').innerHTML = sortedFixed.map(({f,i})=>{
+  document.getElementById('fixedTableBody').innerHTML = store.fixedExpenses.map((f,i)=>{
     if(editingFixedIndex === i){
       return `<tr>
         <td><input class="edit-input" type="text" id="edit_fx_day_${i}" value="${escHtmlAttr(f.day||'')}"></td>
         <td><input class="edit-input" type="text" id="edit_fx_name_${i}" value="${escHtmlAttr(f.name)}"></td>
         <td><input class="edit-input amount" type="number" id="edit_fx_amount_${i}" value="${f.amount}"></td>
-        <td>
-          <select class="edit-select" id="edit_fx_who_${i}">
-            <option value="다혜" ${f.who==='다혜'?'selected':''}>다혜</option>
-            <option value="동구" ${f.who==='동구'?'selected':''}>동구</option>
-            <option value="공동" ${f.who==='공동'?'selected':''}>공동</option>
-          </select>
-        </td>
         <td class="action-cell">
           <button class="save-btn" onclick="saveEditFixed(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditFixed()">취소</button>
@@ -1153,7 +1140,6 @@ function render(){
       </tr>`;
     }
     return `<tr><td>${f.day||''}</td><td>${f.name}</td><td class="num">${fmt(f.amount)}</td>
-     <td><span class="badge ${f.who||'다혜'}">${f.who||'다혜'}</span></td>
      <td class="action-cell">
        <button class="edit-btn" title="수정" onclick="editFixed(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteFixed(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
@@ -1188,13 +1174,6 @@ function render(){
         <td><input class="edit-input" type="text" id="edit_sv_day_${i}" value="${escHtmlAttr(f.day||'')}"></td>
         <td><input class="edit-input" type="text" id="edit_sv_name_${i}" value="${escHtmlAttr(f.name)}"></td>
         <td><input class="edit-input amount" type="number" id="edit_sv_amount_${i}" value="${f.amount}"></td>
-        <td>
-          <select class="edit-select" id="edit_sv_who_${i}">
-            <option value="다혜" ${f.who==='다혜'?'selected':''}>다혜</option>
-            <option value="동구" ${f.who==='동구'?'selected':''}>동구</option>
-            <option value="공동" ${f.who==='공동'?'selected':''}>공동</option>
-          </select>
-        </td>
         <td class="action-cell">
           <button class="save-btn" onclick="saveEditSaving(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditSaving()">취소</button>
@@ -1202,7 +1181,6 @@ function render(){
       </tr>`;
     }
     return `<tr><td>${f.day||''}</td><td>${f.name}</td><td class="num">${fmt(f.amount)}</td>
-     <td><span class="badge ${f.who||'다혜'}">${f.who||'다혜'}</span></td>
      <td class="action-cell">
        <button class="edit-btn" title="수정" onclick="editSaving(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteSaving(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
@@ -1255,6 +1233,14 @@ function render(){
   const allCats = Array.from(new Set([...DEFAULT_CATS, ...tx.map(t=>t.cat)]));
   document.getElementById('catlist').innerHTML = allCats.map(c=>`<option value="${c}"></option>`).join('');
 }
+
+bindManualCard('cardConsumption','consumption');
+bindManualCard('cardOutflow','outflow');
+bindManualCard('cardIncome','income');
+document.getElementById('assetSnapshotMonth').value = new Date().getMonth()+1;
+render();
+switchTab('monthly');
+initFirestore();
 </script>
 </body>
 </html>
