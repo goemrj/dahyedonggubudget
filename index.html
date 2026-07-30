@@ -118,11 +118,25 @@
   .date-input-wrap input[type="text"]{padding-right:34px;}
   .cal-btn{
     position:absolute; right:4px; top:50%; transform:translateY(-50%);
-    border:none; background:none; cursor:pointer; color:var(--sub); padding:5px;
+    border:none; background:none; color:var(--sub); padding:5px;
     display:flex; align-items:center; border-radius:6px;
+    pointer-events:none;
   }
-  .cal-btn:hover{color:var(--accent); background:#eef1f6;}
-  .native-date-input{position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; left:0; top:0;}
+  .native-date-input{
+    position:absolute; right:0; top:0; width:34px; height:100%;
+    opacity:0; margin:0; padding:0; border:0; cursor:pointer;
+  }
+  .cat-picker-btn{
+    border:1px solid var(--line); border-radius:6px; padding:7px 9px; font-size:13px;
+    font-family:inherit; background:#fafbfc; cursor:pointer; text-align:left; width:100%;
+  }
+  .cat-picker-btn:hover{background:#eef1f6;}
+  .cat-pill{
+    border:1px solid var(--line); background:#fafbfc; padding:7px 12px; border-radius:999px;
+    font-size:13px; cursor:pointer;
+  }
+  .cat-pill:hover{background:#eef1f6;}
+  .cat-pill.active{background:var(--accent); color:#fff; border-color:var(--accent);}
   .add-data-btn{border:none; border-radius:10px; padding:10px 18px; background:var(--accent); color:#fff; font-size:13.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;}
   .add-data-btn:hover{opacity:.92;}
   .import-btn{
@@ -231,6 +245,19 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="catPickerOverlay" onclick="if(event.target===this) closeCatPicker()">
+    <div class="modal-box" style="max-width:340px;">
+      <div class="modal-header">
+        <h3>카테고리 선택</h3>
+        <button class="modal-close" onclick="closeCatPicker()">×</button>
+      </div>
+      <div class="modal-field">
+        <input type="text" id="catPickerCustomInput" placeholder="직접 입력 후 Enter" onkeydown="if(event.key==='Enter'){ event.preventDefault(); confirmCatPickerCustom(); }">
+      </div>
+      <div id="catPickerList" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
+    </div>
+  </div>
+
   <div class="tab-panel" id="tabAssets">
   <section>
     <h2 style="display:flex;justify-content:space-between;align-items:center;">
@@ -317,12 +344,12 @@
       <div class="value" id="cardPayment">-</div>
     </div>
     <div class="card">
-      <div class="label">총 소비</div>
-      <div class="value" contenteditable="true" id="cardConsumption">-</div>
+      <div class="label">총 소비 (결제+고정지출)</div>
+      <div class="value" id="cardConsumption">-</div>
     </div>
     <div class="card">
-      <div class="label">총 나간돈</div>
-      <div class="value" contenteditable="true" id="cardOutflow">-</div>
+      <div class="label">총 나간돈 (결제+고정지출+저축)</div>
+      <div class="value" id="cardOutflow">-</div>
     </div>
   </div>
 
@@ -773,6 +800,58 @@ function extractMonth(dateStr){
 }
 function onMonthChange(v){ selectedMonth = v; render(); }
 
+function dateSortKey(dateStr){
+  const m = String(dateStr||'').match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if(!m) return 999999;
+  return parseInt(m[1],10)*100 + parseInt(m[2],10);
+}
+
+function normalizeDateStr(raw){
+  const s = String(raw||'').trim();
+  if(!s) return '';
+  let m = s.match(/^(\d{1,2})\s*월\s*(\d{1,2})\s*일?$/);
+  if(m) return `${String(m[1]).padStart(2,'0')}월 ${String(m[2]).padStart(2,'0')}일`;
+  m = s.match(/^(?:\d{4}\s*[-.\/]\s*)?(\d{1,2})\s*[-.\/]\s*(\d{1,2})$/);
+  if(m) return `${String(m[1]).padStart(2,'0')}월 ${String(m[2]).padStart(2,'0')}일`;
+  m = s.match(/^(\d{2})(\d{2})$/);
+  if(m) return `${m[1]}월 ${m[2]}일`;
+  m = s.match(/^(\d{1})(\d{2})$/);
+  if(m) return `${m[1].padStart(2,'0')}월 ${m[2]}일`;
+  return s;
+}
+
+let catPickerTargetId = null;
+function openCatPicker(targetInputId){
+  catPickerTargetId = targetInputId;
+  const hidden = document.getElementById(targetInputId);
+  document.getElementById('catPickerCustomInput').value = '';
+  const allCats = Array.from(new Set([...DEFAULT_CATS, ...store.transactions.map(t=>t.cat)])).filter(Boolean);
+  document.getElementById('catPickerList').innerHTML = allCats.map(c=>
+    `<button type="button" class="cat-pill ${hidden && hidden.value===c?'active':''}" onclick="selectCatPicker('${escAttr(c)}')">${c}</button>`
+  ).join('');
+  document.getElementById('catPickerOverlay').classList.add('open');
+}
+function closeCatPicker(){
+  document.getElementById('catPickerOverlay').classList.remove('open');
+  catPickerTargetId = null;
+}
+function selectCatPicker(cat){
+  applyCatPickerValue(cat);
+}
+function confirmCatPickerCustom(){
+  const v = document.getElementById('catPickerCustomInput').value.trim();
+  if(!v) return;
+  applyCatPickerValue(v);
+}
+function applyCatPickerValue(cat){
+  if(!catPickerTargetId) return;
+  const hidden = document.getElementById(catPickerTargetId);
+  if(hidden) hidden.value = cat;
+  const btn = document.getElementById(catPickerTargetId + '_btn');
+  if(btn) btn.textContent = cat;
+  closeCatPicker();
+}
+
 function openAddModal(){
   document.getElementById('addModalOverlay').classList.add('open');
   document.getElementById('addType').value = 'tx';
@@ -791,13 +870,17 @@ function renderAddModalFields(){
           <label>날짜</label>
           <div class="date-input-wrap">
             <input type="text" id="am_tx_date" placeholder="예: 08월 01일">
-            <button type="button" class="cal-btn" title="달력에서 선택" onclick="openDatePicker('am_tx_date')">
+            <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
             </button>
             <input type="date" id="am_tx_date_native" class="native-date-input" onchange="onNativeDatePick('am_tx_date','am_tx_date_native')">
           </div>
         </div>
-        <div class="modal-field"><label>대분류</label><input type="text" id="am_tx_cat" list="catlist" placeholder="예: 식사"></div>
+        <div class="modal-field">
+          <label>대분류</label>
+          <button type="button" class="cat-picker-btn" id="am_tx_cat_btn" onclick="openCatPicker('am_tx_cat')">카테고리 선택</button>
+          <input type="hidden" id="am_tx_cat">
+        </div>
         <div class="modal-field"><label>중분류 / 소분류</label><input type="text" id="am_tx_detail" placeholder="예: 점심"></div>
         <div class="modal-field"><label>금액</label><input type="number" id="am_tx_amount" placeholder="금액"></div>
         <div class="modal-field full"><label>구분</label>
@@ -840,7 +923,7 @@ function onNativeDatePick(textInputId, nativeId){
 function submitAddModal(){
   const type = document.getElementById('addType').value;
   if(type === 'tx'){
-    const date = document.getElementById('am_tx_date').value.trim();
+    const date = normalizeDateStr(document.getElementById('am_tx_date').value.trim());
     const cat = document.getElementById('am_tx_cat').value.trim();
     const detail = document.getElementById('am_tx_detail').value.trim();
     const amount = Number(document.getElementById('am_tx_amount').value);
@@ -914,7 +997,7 @@ function rowToTx(colsIn){
   }
   const amountRaw = cols.pop();
   const amount = Number(String(amountRaw||'').replace(/[,원\s]/g,''));
-  const date = (cols.shift()||'').trim();
+  const date = normalizeDateStr((cols.shift()||'').trim());
   const cat = (cols.shift()||'').trim();
   const detail = cols.filter(c=>c).join(' · ');
   return {date, cat, detail, amount, who};
@@ -961,7 +1044,7 @@ function escHtmlAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&q
 function editTx(i){ editingTxIndex = i; render(); }
 function cancelEditTx(){ editingTxIndex = null; render(); }
 function saveEditTx(i){
-  const date = document.getElementById('edit_date_'+i).value.trim();
+  const date = normalizeDateStr(document.getElementById('edit_date_'+i).value.trim());
   const cat = document.getElementById('edit_cat_'+i).value.trim();
   const detail = document.getElementById('edit_detail_'+i).value.trim();
   const amount = Number(document.getElementById('edit_amount_'+i).value);
@@ -1010,25 +1093,26 @@ function render(){
   const isAllMonths = selectedMonth === 'all';
   const monthTx = isAllMonths ? tx : tx.filter(t=>extractMonth(t.date)===selectedMonth);
   const monthTotal = monthTx.reduce((s,t)=>s+Number(t.amount||0),0);
+  const fixedTotal = store.fixedExpenses.reduce((s,f)=>s+Number(f.amount||0),0);
+  const savingTotal = store.savings.reduce((s,f)=>s+Number(f.amount||0),0);
+  const monthsForFixed = isAllMonths ? Math.max(allMonths.length,1) : 1;
 
   document.getElementById('cardPaymentLabel').textContent = isAllMonths ? '결제 (전체 거래 합계)' : `결제 (${selectedMonth}월 거래 합계)`;
   document.getElementById('cardPayment').textContent = fmt(monthTotal) + '원';
 
-  document.getElementById('cardConsumption').setAttribute('contenteditable', isAllMonths ? 'false' : 'true');
-  document.getElementById('cardOutflow').setAttribute('contenteditable', isAllMonths ? 'false' : 'true');
+  // 총 소비 = 결제내역 + 고정지출, 총 나간돈 = 결제내역 + 고정지출 + 저축 (자동 계산)
+  document.getElementById('cardConsumption').textContent = fmt(monthTotal + fixedTotal*monthsForFixed) + '원';
+  document.getElementById('cardOutflow').textContent = fmt(monthTotal + fixedTotal*monthsForFixed + savingTotal*monthsForFixed) + '원';
+
   document.getElementById('cardIncome').setAttribute('contenteditable', isAllMonths ? 'false' : 'true');
   let monthIncome = 0;
   if(isAllMonths){
-    let sumC=0, sumO=0, sumI=0;
-    Object.values(store.manual||{}).forEach(m=>{ sumC += Number(m.consumption||0); sumO += Number(m.outflow||0); sumI += Number(m.income||0); });
-    document.getElementById('cardConsumption').textContent = fmt(sumC) + '원';
-    document.getElementById('cardOutflow').textContent = fmt(sumO) + '원';
+    let sumI=0;
+    Object.values(store.manual||{}).forEach(m=>{ sumI += Number(m.income||0); });
     document.getElementById('cardIncome').textContent = fmt(sumI) + '원';
     monthIncome = sumI;
   } else {
     const mm = (store.manual && store.manual[selectedMonth]) || {consumption:0, outflow:0, income:0};
-    document.getElementById('cardConsumption').textContent = fmt(mm.consumption) + '원';
-    document.getElementById('cardOutflow').textContent = fmt(mm.outflow) + '원';
     document.getElementById('cardIncome').textContent = fmt(mm.income) + '원';
     monthIncome = Number(mm.income||0);
   }
@@ -1126,7 +1210,6 @@ function render(){
     }).join('');
 
   // fixed expenses (오름차순 정렬, "말일"은 항상 맨 마지막에 고정)
-  const fixedTotal = store.fixedExpenses.reduce((s,f)=>s+Number(f.amount||0),0);
   function parseFixedDay(day){
     if(day === '말일') return 9999;
     const m = String(day||'').match(/(\d{1,2})/);
@@ -1174,7 +1257,6 @@ function render(){
   }
 
   // savings
-  const savingTotal = store.savings.reduce((s,f)=>s+Number(f.amount||0),0);
   document.getElementById('savingTableBody').innerHTML = store.savings.map((f,i)=>{
     if(editingSavingIndex === i){
       return `<tr>
@@ -1198,7 +1280,8 @@ function render(){
   // transactions table (month-scoped + search)
   const term = txSearchTerm.trim().toLowerCase();
   const txWithIndex = tx.map((t,i)=>({t,i}));
-  const monthFilteredTx = isAllMonths ? txWithIndex : txWithIndex.filter(({t})=>extractMonth(t.date)===selectedMonth);
+  const monthFilteredTx = (isAllMonths ? txWithIndex.slice() : txWithIndex.filter(({t})=>extractMonth(t.date)===selectedMonth))
+    .sort((a,b)=>dateSortKey(a.t.date)-dateSortKey(b.t.date));
   const visibleTx = term
     ? monthFilteredTx.filter(({t})=> `${t.date} ${t.cat} ${t.detail||''} ${t.who} ${t.amount}`.toLowerCase().includes(term))
     : monthFilteredTx;
@@ -1207,7 +1290,10 @@ function render(){
     if(editingTxIndex === i){
       return `<tr>
         <td><input class="edit-input" type="text" id="edit_date_${i}" value="${escHtmlAttr(t.date)}"></td>
-        <td><input class="edit-input" type="text" id="edit_cat_${i}" value="${escHtmlAttr(t.cat)}" list="catlist"></td>
+        <td>
+          <button type="button" class="cat-picker-btn" id="edit_cat_${i}_btn" onclick="openCatPicker('edit_cat_${i}')">${escHtmlAttr(t.cat)}</button>
+          <input type="hidden" id="edit_cat_${i}" value="${escHtmlAttr(t.cat)}">
+        </td>
         <td><input class="edit-input" type="text" id="edit_detail_${i}" value="${escHtmlAttr(t.detail||'')}"></td>
         <td><input class="edit-input amount" type="number" id="edit_amount_${i}" value="${t.amount}"></td>
         <td>
@@ -1241,8 +1327,6 @@ function render(){
   document.getElementById('catlist').innerHTML = allCats.map(c=>`<option value="${c}"></option>`).join('');
 }
 
-bindManualCard('cardConsumption','consumption');
-bindManualCard('cardOutflow','outflow');
 bindManualCard('cardIncome','income');
 document.getElementById('assetSnapshotMonth').value = new Date().getMonth()+1;
 render();
