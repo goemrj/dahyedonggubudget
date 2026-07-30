@@ -154,6 +154,11 @@
     <button class="tab-btn" id="tabBtnAssets" onclick="switchTab('assets')">자산 현황</button>
   </div>
 
+  <div id="seedDataBar" style="display:none; background:#fff8e6; border:1px solid #f0d98c; border-radius:10px; padding:12px 16px; margin-bottom:18px; font-size:13px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <span>아직 저장된 데이터가 없어요. 다혜가 처음에 정리해둔 7월 데이터(거래·고정지출·저축·자산)를 한 번에 불러올까요?</span>
+    <button class="add-data-btn" style="font-size:12.5px;padding:8px 14px;background:#c9a400;" onclick="loadSeedData()">초기 데이터 불러오기</button>
+  </div>
+
   <div class="modal-overlay" id="addModalOverlay" onclick="if(event.target===this) closeAddModal()">
     <div class="modal-box">
       <div class="modal-header">
@@ -551,6 +556,13 @@ function setSyncStatus(state, extra){
   if(state === 'synced') el.textContent = `🟢 실시간 동기화 중 (${t} 기준)`;
   else if(state === 'saving') el.textContent = '⏳ 저장 중...';
   else if(state === 'error') el.textContent = '🔴 동기화 오류 - 인터넷 연결과 Firebase 설정을 확인해줘' + (extra ? ` (${extra})` : '');
+}
+
+function loadSeedData(){
+  if(!confirm('다혜가 정리해둔 7월 초기 데이터(거래 39건, 고정지출, 저축, 자산 12건)를 지금 데이터 위에 덮어씌울까요?\n이미 입력한 내용이 있다면 사라지니, 정말 비어있을 때만 눌러줘.')) return;
+  store = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  save();
+  render();
 }
 
 function save(){
@@ -983,6 +995,10 @@ function bindManualCard(id, key){
 function render(){
   if(!store) return;
   const tx = store.transactions;
+
+  const isEmptyStore = tx.length === 0 && (store.fixedExpenses||[]).length === 0 &&
+    (store.savings||[]).length === 0 && (store.assets||[]).length === 0;
+  document.getElementById('seedDataBar').style.display = isEmptyStore ? 'flex' : 'none';
 
   const allMonths = Array.from(new Set(tx.map(t=>extractMonth(t.date)).filter(Boolean))).sort((a,b)=>Number(a)-Number(b));
   if(selectedMonth === null && allMonths.length) selectedMonth = allMonths[allMonths.length-1];
