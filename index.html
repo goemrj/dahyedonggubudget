@@ -295,7 +295,7 @@
 
     <div style="margin-top:24px; padding-top:20px; border-top:1px dashed var(--line);">
       <h2 style="font-size:14px; margin:0 0 14px;"><span class="dot"></span>자산 추이</h2>
-      <div id="assetTrendChart" style="display:flex; align-items:flex-end; gap:18px; height:170px; overflow-x:auto; padding:6px 2px;"></div>
+      <div id="assetTrendChart" style="display:flex; align-items:flex-end; gap:18px; min-height:220px; overflow-x:auto; overflow-y:visible; padding:30px 8px 8px;"></div>
     </div>
   </section>
   </div>
@@ -751,7 +751,7 @@ function renderAssetTrend(){
   const maxV = Math.max(...totals, 1);
   el.innerHTML = snaps.map((s,idx)=>{
     const v = totals[idx];
-    const h = Math.max(6, (v/maxV*130));
+    const h = Math.max(6, (v/maxV*140));
     return `<div style="display:flex;flex-direction:column;align-items:center;min-width:56px;">
       <div style="font-size:10.5px;color:var(--sub);margin-bottom:4px;white-space:nowrap;">${fmt(v)}</div>
       <div style="width:36px;height:${h}px;background:linear-gradient(180deg,#c9d6f7,#9db3ea);border-radius:6px 6px 0 0;"></div>
