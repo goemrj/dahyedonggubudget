@@ -1125,9 +1125,16 @@ function render(){
       return `<div class="ratio-seg" style="width:${pct}%;background:${st.bg};color:${st.fg};">${who} ${fmt(amt)} (${pct.toFixed(1)}%)</div>`;
     }).join('');
 
-  // fixed expenses
+  // fixed expenses (오름차순 정렬, "말일"은 항상 맨 마지막에 고정)
   const fixedTotal = store.fixedExpenses.reduce((s,f)=>s+Number(f.amount||0),0);
-  document.getElementById('fixedTableBody').innerHTML = store.fixedExpenses.map((f,i)=>{
+  function parseFixedDay(day){
+    if(day === '말일') return 9999;
+    const m = String(day||'').match(/(\d{1,2})/);
+    return m ? parseInt(m[1],10) : -1;
+  }
+  const sortedFixed = store.fixedExpenses.map((f,i)=>({f,i}))
+    .sort((a,b)=>parseFixedDay(a.f.day)-parseFixedDay(b.f.day));
+  document.getElementById('fixedTableBody').innerHTML = sortedFixed.map(({f,i})=>{
     if(editingFixedIndex === i){
       return `<tr>
         <td><input class="edit-input" type="text" id="edit_fx_day_${i}" value="${escHtmlAttr(f.day||'')}"></td>
