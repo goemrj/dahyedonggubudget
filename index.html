@@ -334,7 +334,7 @@
   <div class="tab-panel" id="tabAssets">
   <section>
     <h2 style="display:flex;justify-content:space-between;align-items:center;">
-      <span><span class="dot"></span>자산 현황 <span id="assetAsOf" style="font-weight:400;font-size:11.5px;color:var(--sub);"></span></span>
+      <span>💰 자산 현황 <span id="assetAsOf" style="font-weight:400;font-size:11.5px;color:var(--sub);"></span></span>
       <button class="add-data-btn" id="addAssetBtn" style="font-size:12.5px;padding:8px 14px;" onclick="openAssetModal()">+ 자산 추가</button>
     </h2>
 
@@ -394,7 +394,7 @@
     <div class="hint">주식·펀드·연금처럼 바로 현금화하기 어려운 자산은 "현금화 불가"로 표시하면 구분돼요. 위 "+ 자산 추가" 버튼으로 새 자산을 넣을 수 있고, "월말 스냅샷 저장"으로 그 달 자산을 기록해두면 다음 달과 비교할 수 있어요.</div>
 
     <div style="margin-top:24px; padding-top:20px; border-top:1px dashed var(--line);">
-      <h2 style="font-size:14px; margin:0 0 14px;"><span class="dot"></span>자산 추이</h2>
+      <h2 style="font-size:14px; margin:0 0 14px;">📈 자산 추이</h2>
       <div id="assetTrendChart" style="display:flex; align-items:flex-end; gap:18px; min-height:220px; overflow-x:auto; overflow-y:visible; padding:30px 8px 8px;"></div>
     </div>
   </section>
@@ -427,7 +427,7 @@
   </div>
 
   <section>
-    <h2><span class="dot"></span>이번 달 저축 현황</h2>
+    <h2>💳 이번 달 저축 현황</h2>
     <div class="cards" style="margin-bottom:0;">
       <div class="card">
         <div class="label">수입</div>
@@ -446,7 +446,7 @@
 
     <div style="margin-top:20px; padding-top:16px; border-top:1px dashed var(--line);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <h2 style="font-size:14px; margin:0;"><span class="dot"></span>수입 내역</h2>
+        <h2 style="font-size:14px; margin:0;">💵 수입 내역</h2>
         <button class="add-data-btn" style="font-size:12.5px;padding:7px 12px;" onclick="openIncomeModal()">+ 수입 추가</button>
       </div>
       <table>
@@ -459,7 +459,7 @@
 
   <div class="two-col">
     <section>
-      <h2><span class="dot"></span>카테고리별 합계</h2>
+      <h2>🗂️ 카테고리별 합계</h2>
       <table>
         <thead><tr><th>분류</th><th class="num">금액</th></tr></thead>
         <tbody id="catTableBody"></tbody>
@@ -467,41 +467,15 @@
     </section>
 
     <section>
-      <h2><span class="dot"></span>다혜 · 동구 · 공동 합계</h2>
+      <h2>👥 다혜 · 동구 · 공동 합계</h2>
       <div id="whoSplit"></div>
     </section>
   </div>
 
-  <section>
-    <h2><span class="dot"></span>카테고리별 지출 그래프</h2>
-    <div id="catChart"></div>
-
-    <h2 style="margin-top:20px;"><span class="dot"></span>다혜 · 동구 · 공동 지출 비율</h2>
-    <div class="ratio-bar" id="ratioBar"></div>
-  </section>
-
-  <div class="two-col">
-    <section>
-      <h2><span class="dot"></span>고정지출 (결제일 기준)</h2>
-      <table>
-        <thead><tr><th>결제일</th><th>내용</th><th class="num">금액</th><th>구분</th><th></th></tr></thead>
-        <tbody id="fixedTableBody"></tbody>
-        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="fixedTotal">0</td><td></td><td></td></tr></tfoot>
-      </table>
-    </section>
-
-    <section>
-      <h2><span class="dot"></span>저축 · 투자</h2>
-      <table>
-        <thead><tr><th>일자</th><th>내용</th><th class="num">금액</th><th>구분</th><th></th></tr></thead>
-        <tbody id="savingTableBody"></tbody>
-        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="savingTotal">0</td><td></td><td></td></tr></tfoot>
-      </table>
-    </section>
-  </div>
+  <div id="fixedSavingWrap"></div>
 
   <section>
-    <h2><span class="dot"></span>전체 거래 내역</h2>
+    <h2>🧾 전체 거래 내역</h2>
     <div class="search-wrap">
       <input type="text" id="txSearch" class="search-input" placeholder="검색 (날짜·분류·내용·다혜/동구/공동)" oninput="onTxSearch(this.value)">
       <span class="search-count" id="txSearchCount"></span>
@@ -1540,19 +1514,6 @@ function render(){
     return row + detailRow;
   }).join('') + `<tr class="total"><td>총합계</td><td class="num">${fmt(monthTotal)}</td></tr>`;
 
-  const maxCat = catEntries.length ? catEntries[0][1] : 1;
-  document.getElementById('catChart').innerHTML = catEntries.map(([cat,amt])=>{
-    const pct = monthTotal ? (amt/monthTotal*100).toFixed(1) : '0.0';
-    const width = maxCat ? Math.max(3, (amt/maxCat*100)) : 0;
-    return `<div class="chart-row-wrap">
-      <div class="chart-row" style="cursor:default;">
-        <div class="chart-label">${cat}</div>
-        <div class="chart-track"><div class="chart-fill" style="width:${width}%;background:${colorForCat(cat)}"></div></div>
-        <div class="chart-value">${fmt(amt)} (${pct}%)</div>
-      </div>
-    </div>`;
-  }).join('');
-
   // who totals (month-scoped)
   const whoTotals = {'다혜':0,'동구':0,'공동':0};
   monthTx.forEach(t=>{ whoTotals[t.who] = (whoTotals[t.who]||0) + Number(t.amount||0); });
@@ -1570,30 +1531,18 @@ function render(){
       <span>총합계</span><span>${fmt(monthTotal)}원</span>
     </div>`;
 
-  document.getElementById('ratioBar').innerHTML = Object.entries(whoTotals)
-    .filter(([who,amt])=>amt>0)
-    .map(([who,amt])=>{
-      const st = WHO_STYLE[who];
-      const pct = monthTotal ? (amt/monthTotal*100) : 0;
-      return `<div class="ratio-seg" style="width:${pct}%;background:${st.bg};color:${st.fg};">${who} ${fmt(amt)} (${pct.toFixed(1)}%)</div>`;
-    }).join('');
-
   // fixed expenses (오름차순 정렬, "말일"은 항상 맨 마지막에 고정)
   function parseFixedDay(day){
     if(day === '말일') return 9999;
     const m = String(day||'').match(/(\d{1,2})/);
     return m ? parseInt(m[1],10) : -1;
   }
-  const sortedFixed = store.fixedExpenses.map((f,i)=>({f,i}))
-    .filter(({f})=> ledgerView==='all' || f.who===ledgerView)
-    .sort((a,b)=>parseFixedDay(a.f.day)-parseFixedDay(b.f.day));
-  document.getElementById('fixedTableBody').innerHTML = sortedFixed.map(({f,i})=>{
+  function fixedRowHtml(f,i){
     if(editingFixedIndex === i){
       return `<tr>
         <td><input class="edit-input" type="text" id="edit_fx_day_${i}" value="${escHtmlAttr(f.day||'')}"></td>
         <td><input class="edit-input" type="text" id="edit_fx_name_${i}" value="${escHtmlAttr(f.name)}"></td>
         <td><input class="edit-input amount" type="number" id="edit_fx_amount_${i}" value="${f.amount}"></td>
-        <td><span class="badge ${f.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('fixed', ${i}, this)">${f.who}</span></td>
         <td class="action-cell">
           <button class="save-btn" onclick="saveEditFixed(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditFixed()">취소</button>
@@ -1601,13 +1550,20 @@ function render(){
       </tr>`;
     }
     return `<tr><td>${f.day||''}</td><td>${f.name}</td><td class="num">${fmt(f.amount)}</td>
-     <td><span class="badge ${f.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('fixed', ${i}, this)">${f.who}</span></td>
      <td class="action-cell">
        <button class="edit-btn" title="수정" onclick="editFixed(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteFixed(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
      </td></tr>`;
-  }).join('');
-  document.getElementById('fixedTotal').textContent = fmt(fixedTotal);
+  }
+  function fixedTableHtml(items, total){
+    return `<table>
+      <thead><tr><th>결제일</th><th>내용</th><th class="num">금액</th><th></th></tr></thead>
+      <tbody>${items.map(({f,i})=>fixedRowHtml(f,i)).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--sub);padding:14px 0;">내역 없음</td></tr>'}</tbody>
+      <tfoot><tr class="total"><td colspan="2">계</td><td class="num">${fmt(total)}</td><td></td></tr></tfoot>
+    </table>`;
+  }
+  const allFixedSorted = store.fixedExpenses.map((f,i)=>({f,i}))
+    .sort((a,b)=>parseFixedDay(a.f.day)-parseFixedDay(b.f.day));
 
   // income vs expense (savings screen)
   // 고정지출은 달이 바뀌어도 동일하게 자동 반영 (전체 보기에서는 월 수만큼 곱해줌)
@@ -1656,15 +1612,12 @@ function render(){
   document.getElementById('incomeTotal').textContent = fmt(monthIncome);
 
   // savings
-  const visibleSavings = store.savings.map((f,i)=>({f,i}))
-    .filter(({f})=> ledgerView==='all' || f.who===ledgerView);
-  document.getElementById('savingTableBody').innerHTML = visibleSavings.map(({f,i})=>{
+  function savingRowHtml(f,i){
     if(editingSavingIndex === i){
       return `<tr>
         <td><input class="edit-input" type="text" id="edit_sv_day_${i}" value="${escHtmlAttr(f.day||'')}"></td>
         <td><input class="edit-input" type="text" id="edit_sv_name_${i}" value="${escHtmlAttr(f.name)}"></td>
         <td><input class="edit-input amount" type="number" id="edit_sv_amount_${i}" value="${f.amount}"></td>
-        <td><span class="badge ${f.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('saving', ${i}, this)">${f.who}</span></td>
         <td class="action-cell">
           <button class="save-btn" onclick="saveEditSaving(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditSaving()">취소</button>
@@ -1672,13 +1625,71 @@ function render(){
       </tr>`;
     }
     return `<tr><td>${f.day||''}</td><td>${f.name}</td><td class="num">${fmt(f.amount)}</td>
-     <td><span class="badge ${f.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('saving', ${i}, this)">${f.who}</span></td>
      <td class="action-cell">
        <button class="edit-btn" title="수정" onclick="editSaving(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteSaving(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
      </td></tr>`;
-  }).join('');
-  document.getElementById('savingTotal').textContent = fmt(savingTotal);
+  }
+  function savingTableHtml(items, total){
+    return `<table>
+      <thead><tr><th>일자</th><th>내용</th><th class="num">금액</th><th></th></tr></thead>
+      <tbody>${items.map(({f,i})=>savingRowHtml(f,i)).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--sub);padding:14px 0;">내역 없음</td></tr>'}</tbody>
+      <tfoot><tr class="total"><td colspan="2">계</td><td class="num">${fmt(total)}</td><td></td></tr></tfoot>
+    </table>`;
+  }
+  const allSavingsIdx = store.savings.map((f,i)=>({f,i}));
+
+  if(ledgerView === 'all'){
+    const fxDahye = allFixedSorted.filter(({f})=>f.who==='다혜');
+    const fxDonggu = allFixedSorted.filter(({f})=>f.who==='동구');
+    const fxDahyeTotal = fxDahye.reduce((s,{f})=>s+Number(f.amount||0),0);
+    const fxDongguTotal = fxDonggu.reduce((s,{f})=>s+Number(f.amount||0),0);
+    const svDahye = allSavingsIdx.filter(({f})=>f.who==='다혜');
+    const svDonggu = allSavingsIdx.filter(({f})=>f.who==='동구');
+    const svDahyeTotal = svDahye.reduce((s,{f})=>s+Number(f.amount||0),0);
+    const svDongguTotal = svDonggu.reduce((s,{f})=>s+Number(f.amount||0),0);
+    document.getElementById('fixedSavingWrap').innerHTML = `
+      <section>
+        <h2>📌 고정지출</h2>
+        <div class="two-col">
+          <div>
+            <div style="margin-bottom:8px;"><span class="badge 동구">동구</span></div>
+            ${fixedTableHtml(fxDonggu, fxDongguTotal)}
+          </div>
+          <div>
+            <div style="margin-bottom:8px;"><span class="badge 다혜">다혜</span></div>
+            ${fixedTableHtml(fxDahye, fxDahyeTotal)}
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>🏦 저축 · 투자</h2>
+        <div class="two-col">
+          <div>
+            <div style="margin-bottom:8px;"><span class="badge 동구">동구</span></div>
+            ${savingTableHtml(svDonggu, svDongguTotal)}
+          </div>
+          <div>
+            <div style="margin-bottom:8px;"><span class="badge 다혜">다혜</span></div>
+            ${savingTableHtml(svDahye, svDahyeTotal)}
+          </div>
+        </div>
+      </section>`;
+  } else {
+    const sortedFixed = allFixedSorted.filter(({f})=>f.who===ledgerView);
+    const visibleSavings = allSavingsIdx.filter(({f})=>f.who===ledgerView);
+    document.getElementById('fixedSavingWrap').innerHTML = `
+      <div class="two-col">
+        <section>
+          <h2>📌 고정지출 (결제일 기준)</h2>
+          ${fixedTableHtml(sortedFixed, fixedTotal)}
+        </section>
+        <section>
+          <h2>🏦 저축 · 투자</h2>
+          ${savingTableHtml(visibleSavings, savingTotal)}
+        </section>
+      </div>`;
+  }
 
   // transactions table (month-scoped + search)
   const term = txSearchTerm.trim().toLowerCase();
