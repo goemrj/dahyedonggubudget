@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💰</text></svg>">
 <title>우리 가계부</title>
 <style>
@@ -81,7 +82,8 @@
   .edit-btn{border:none; background:none; cursor:pointer; padding:4px 5px; border-radius:6px; line-height:1; color:#a9c0e3; display:inline-flex; align-items:center; transition:transform .15s, background .15s, color .15s;}
   .edit-btn:hover{transform:scale(1.15); background:#eef1f6; color:#3d7cb0;}
   .del-btn svg, .edit-btn svg{display:block;}
-  .action-cell{display:flex; gap:2px; justify-content:flex-end; white-space:nowrap;}
+  .action-cell{white-space:nowrap; vertical-align:middle;}
+  .action-cell-inner{display:flex; align-items:center; gap:2px; justify-content:flex-end;}
   .edit-input, .edit-select{border:1px solid var(--line); border-radius:6px; padding:5px 7px; font-size:12.5px; font-family:inherit; width:100%; background:#fafbfc;}
   .edit-input.amount{text-align:right;}
   .save-btn{border:none; border-radius:6px; padding:5px 10px; background:var(--accent); color:#fff; font-size:12px; font-weight:600; cursor:pointer;}
@@ -249,6 +251,7 @@
             <option value="false">불가</option>
           </select>
         </div>
+        <div class="modal-field full"><label>메모 (선택)</label><input type="text" id="am_as_memo" placeholder="예: 만기 2027년 3월"></div>
       </div>
       <div class="modal-footer">
         <button class="cancel-btn" onclick="closeAssetModal()">취소</button>
@@ -310,6 +313,14 @@
 
   <div class="popover-panel" id="ledgerViewPickerPanel">
     <div id="ledgerViewPickerList" class="cat-pill-wrap"></div>
+  </div>
+
+  <div class="popover-panel" id="memoPickerPanel" style="max-width:220px;">
+    <textarea id="memoPickerInput" rows="3" placeholder="메모를 입력해줘" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button type="button" class="cancel-btn" onclick="closeAllPopovers()">취소</button>
+      <button type="button" class="save-btn" onclick="saveMemoPicker()">저장</button>
+    </div>
   </div>
 
   <div class="modal-overlay" id="incomeModalOverlay" onclick="if(event.target===this) closeIncomeModal()">
@@ -410,6 +421,90 @@
     <div style="margin-top:24px; padding-top:20px; border-top:1px dashed var(--line);">
       <h2 style="font-size:14px; margin:0 0 14px;">📈 자산 추이</h2>
       <div id="assetTrendChart" style="display:flex; align-items:flex-end; gap:18px; min-height:220px; overflow-x:auto; overflow-y:visible; padding:30px 8px 8px;"></div>
+    </div>
+
+    <div style="margin-top:24px; padding-top:20px; border-top:1px dashed var(--line);">
+      <h2 style="font-size:14px; margin:0 0 14px;">🎯 목표 자금 계획</h2>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+        <label style="font-size:13px;color:var(--sub);">목표명</label>
+        <input type="text" id="goalTargetLabel" class="search-input" style="max-width:180px;" onchange="onGoalLabelChange(this.value)">
+        <label style="font-size:13px;color:var(--sub);">목표 시점</label>
+        <input type="month" id="goalTargetDate" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;background:#fafbfc;" onchange="onGoalDateChange(this.value)">
+        <span id="goalCountdown" style="font-size:12px;color:var(--sub);"></span>
+      </div>
+
+      <div class="two-col">
+        <div style="border:1px solid var(--line); border-radius:10px; padding:16px 18px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <span style="font-weight:700;font-size:13.5px;">필요 자금 내역</span>
+            <span style="font-weight:700;font-size:15px;" id="goalCostTotal">0원</span>
+          </div>
+          <table>
+            <thead><tr><th>항목</th><th class="num">금액</th><th></th></tr></thead>
+            <tbody id="goalCostTableBody"></tbody>
+            <tfoot><tr>
+              <td><input class="edit-input" type="text" id="goalCostName" placeholder="항목명"></td>
+              <td><input class="edit-input amount" type="number" id="goalCostAmount" placeholder="금액"></td>
+              <td class="action-cell"><div class="action-cell-inner"><button class="add-btn" onclick="addGoalCost()">추가</button></div></td>
+            </tr></tfoot>
+          </table>
+        </div>
+        <div style="border:1px solid var(--line); border-radius:10px; padding:16px 18px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <span style="font-weight:700;font-size:13.5px;">이미 마련된 돈 (차감)</span>
+            <span style="font-weight:700;font-size:15px;color:#2f8f5b;" id="goalDeductionTotal">0원</span>
+          </div>
+          <table>
+            <thead><tr><th>항목</th><th class="num">금액</th><th></th></tr></thead>
+            <tbody id="goalDeductionTableBody"></tbody>
+            <tfoot><tr>
+              <td><input class="edit-input" type="text" id="goalDeductionName" placeholder="항목명"></td>
+              <td><input class="edit-input amount" type="number" id="goalDeductionAmount" placeholder="금액"></td>
+              <td class="action-cell"><div class="action-cell-inner"><button class="add-btn" onclick="addGoalDeduction()">추가</button></div></td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="cards" style="margin-top:20px; grid-template-columns:repeat(4,1fr);">
+        <div class="card">
+          <div class="label">최종 모아야 할 돈</div>
+          <div class="value" id="goalRemainingCard">-</div>
+        </div>
+        <div class="card">
+          <div class="label">현재 현금성 자산</div>
+          <div class="value" id="goalLiquidCard">-</div>
+        </div>
+        <div class="card">
+          <div class="label">부족한 금액</div>
+          <div class="value" id="goalShortfallCard">-</div>
+        </div>
+        <div class="card">
+          <div class="label">월 저축 필요액</div>
+          <div class="value" id="goalMonthlyCard">-</div>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px; margin-bottom:22px;">
+          <div>
+            <div style="font-weight:700;font-size:13.5px;margin-bottom:6px;">달성 진행률</div>
+            <div style="font-size:28px;font-weight:800;color:var(--accent);line-height:1.1;" id="goalPctBig">-</div>
+          </div>
+          <div style="text-align:right;font-size:12.5px;color:#b23b3b;font-weight:600;" id="goalRemainPctLabel"></div>
+        </div>
+
+        <div style="position:relative; padding-top:24px;">
+          <div id="goalPctBadge" style="position:absolute; top:0; left:0; transform:translateX(-50%); background:var(--accent); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px; white-space:nowrap;"></div>
+          <div class="ratio-bar" id="goalProgressBar" style="margin-bottom:0; height:10px; border-radius:999px;"></div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:12.5px; flex-wrap:wrap; gap:8px;">
+          <span style="color:var(--accent); font-weight:600;">● 달성 <span id="goalAchievedLegend">-</span></span>
+          <span style="color:#b23b3b; font-weight:600;">● 부족 <span id="goalShortfallLegend">-</span></span>
+        </div>
+      </div>
+      <div class="hint">계산식: 필요 자금 합계 − 이미 마련된 돈 합계 = 최종 모아야 할 돈. 달성률은 (현재 즉시 현금화 가능 자산 ÷ 최종 모아야 할 돈)으로 계산돼요.</div>
     </div>
   </section>
   </div>
@@ -666,6 +761,22 @@ const DEFAULT_DATA = {
 DEFAULT_DATA.assetSnapshots = [
   {month:'7', asOf: DEFAULT_DATA.assetAsOf, assets: JSON.parse(JSON.stringify(DEFAULT_DATA.assets))}
 ];
+DEFAULT_DATA.goal = {
+  targetLabel: '어반스퀘어 입주',
+  targetDate: '2029-10',
+  costItems: [
+    {name:'매매가', amount:857900000},
+    {name:'베란다확장 및 시스템', amount:29776000},
+    {name:'중도금이자', amount:50000000},
+    {name:'인테리어', amount:30000000},
+    {name:'취득세 등', amount:30000000}
+  ],
+  deductionItems: [
+    {name:'지금까지 낸 돈 (납부완료)', amount:45872600},
+    {name:'전세금', amount:140000000},
+    {name:'대출', amount:600000000}
+  ]
+};
 
 function normalizeStore(raw){
   const parsed = raw && raw.payload ? raw.payload : raw;
@@ -689,8 +800,14 @@ function normalizeStore(raw){
   normalized.savings.forEach(f=>{ if(!f.who) f.who = '다혜'; });
   normalized.incomes.forEach(inc=>{ if(!inc.who) inc.who = '다혜'; });
   if(!normalized.assets) normalized.assets = JSON.parse(JSON.stringify(DEFAULT_DATA.assets));
+  normalized.assets.forEach(a=>{ if(a.memo === undefined) a.memo = ''; });
   if(!normalized.assetAsOf) normalized.assetAsOf = DEFAULT_DATA.assetAsOf;
   if(!normalized.assetSnapshots) normalized.assetSnapshots = JSON.parse(JSON.stringify(DEFAULT_DATA.assetSnapshots));
+  if(!normalized.goal) normalized.goal = JSON.parse(JSON.stringify(DEFAULT_DATA.goal));
+  if(!normalized.goal.targetLabel) normalized.goal.targetLabel = DEFAULT_DATA.goal.targetLabel;
+  if(!normalized.goal.targetDate) normalized.goal.targetDate = DEFAULT_DATA.goal.targetDate;
+  if(!normalized.goal.costItems) normalized.goal.costItems = [];
+  if(!normalized.goal.deductionItems) normalized.goal.deductionItems = [];
 
   if(normalized.manual && normalized.manual.consumption !== undefined){
     normalized.manual = {
@@ -825,12 +942,96 @@ function saveEditAsset(i){
   const liquid = document.getElementById('edit_as_liquid_'+i).value === 'true';
   if(!name || !amount){ alert('자산명, 금액은 꼭 입력해줘'); return; }
   const owner = store.assets[i].owner;
-  store.assets[i] = {name, owner, amount, liquid};
+  const memo = store.assets[i].memo || '';
+  store.assets[i] = {name, owner, amount, liquid, memo};
   store.assetAsOf = new Date().toISOString().slice(0,10);
   save();
   editingAssetIndex = null;
   render();
 }
+let memoPickerTargetIndex = null;
+function openMemoPicker(i, anchorEl){
+  memoPickerTargetIndex = i;
+  document.getElementById('memoPickerInput').value = (store.assets[i] && store.assets[i].memo) || '';
+  showPopover('memoPickerPanel', anchorEl);
+}
+function saveMemoPicker(){
+  if(memoPickerTargetIndex === null) return;
+  const memo = document.getElementById('memoPickerInput').value.trim();
+  if(store.assets[memoPickerTargetIndex]){
+    store.assets[memoPickerTargetIndex].memo = memo;
+    store.assetAsOf = new Date().toISOString().slice(0,10);
+    save();
+  }
+  closeAllPopovers();
+  render();
+}
+
+// 목표 자금 계획 (goal)
+function onGoalLabelChange(v){ store.goal.targetLabel = v.trim() || '목표'; save(); render(); }
+function onGoalDateChange(v){ store.goal.targetDate = v; save(); render(); }
+
+function addGoalCost(){
+  const name = document.getElementById('goalCostName').value.trim();
+  const amount = Number(document.getElementById('goalCostAmount').value);
+  if(!name || !amount){ alert('항목명, 금액은 꼭 입력해줘'); return; }
+  store.goal.costItems.push({name, amount});
+  document.getElementById('goalCostName').value = '';
+  document.getElementById('goalCostAmount').value = '';
+  save(); render();
+}
+let editingGoalCostIndex = null;
+function editGoalCost(i){ editingGoalCostIndex = i; render(); }
+function cancelEditGoalCost(){ editingGoalCostIndex = null; render(); }
+function saveEditGoalCost(i){
+  const name = document.getElementById('edit_gc_name_'+i).value.trim();
+  const amount = Number(document.getElementById('edit_gc_amount_'+i).value);
+  if(!name || !amount){ alert('항목명, 금액은 꼭 입력해줘'); return; }
+  store.goal.costItems[i] = {name, amount};
+  save(); editingGoalCostIndex = null; render();
+}
+function deleteGoalCost(i){
+  store.goal.costItems.splice(i,1);
+  save(); render();
+}
+
+function addGoalDeduction(){
+  const name = document.getElementById('goalDeductionName').value.trim();
+  const amount = Number(document.getElementById('goalDeductionAmount').value);
+  if(!name || !amount){ alert('항목명, 금액은 꼭 입력해줘'); return; }
+  store.goal.deductionItems.push({name, amount});
+  document.getElementById('goalDeductionName').value = '';
+  document.getElementById('goalDeductionAmount').value = '';
+  save(); render();
+}
+let editingGoalDeductionIndex = null;
+function editGoalDeduction(i){ editingGoalDeductionIndex = i; render(); }
+function cancelEditGoalDeduction(){ editingGoalDeductionIndex = null; render(); }
+function saveEditGoalDeduction(i){
+  const name = document.getElementById('edit_gd_name_'+i).value.trim();
+  const amount = Number(document.getElementById('edit_gd_amount_'+i).value);
+  if(!name || !amount){ alert('항목명, 금액은 꼭 입력해줘'); return; }
+  store.goal.deductionItems[i] = {name, amount};
+  save(); editingGoalDeductionIndex = null; render();
+}
+function deleteGoalDeduction(i){
+  store.goal.deductionItems.splice(i,1);
+  save(); render();
+}
+function monthsUntilGoal(dateStr){
+  if(!dateStr) return null;
+  const m = String(dateStr).match(/(\d{4})-(\d{1,2})/);
+  if(!m) return null;
+  const y = Number(m[1]), mo = Number(m[2]);
+  const now = new Date();
+  return (y - now.getFullYear())*12 + (mo - 1 - now.getMonth());
+}
+function formatGoalDate(dateStr){
+  const m = String(dateStr||'').match(/(\d{4})-(\d{1,2})/);
+  if(!m) return '';
+  return `${m[1]}년 ${Number(m[2])}월`;
+}
+
 let openAssetOwner = null;
 function toggleAssetOwner(owner){ openAssetOwner = (openAssetOwner === owner) ? null : owner; render(); }
 function assetDetailHtml(items){
@@ -853,17 +1054,19 @@ function renderAssetColumn(owner, tbodyId, sourceAssets, readonly){
           <option value="true" ${a.liquid?'selected':''}>가능</option>
           <option value="false" ${!a.liquid?'selected':''}>불가</option>
         </select></td>
-        <td class="action-cell">
+        <td class="action-cell"><div class="action-cell-inner">
           <button class="save-btn" onclick="saveEditAsset(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditAsset()">취소</button>
-        </td>
+        </div></td>
       </tr>`;
     }
-    const actionsHtml = readonly ? '<td></td>' : `<td class="action-cell">
+    const actionsHtml = readonly ? '<td></td>' : `<td class="action-cell"><div class="action-cell-inner">
        <button class="edit-btn" title="수정" onclick="editAsset(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+       <button class="edit-btn" title="메모" onclick="openMemoPicker(${i}, this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E3A008" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3H15L19 7V21H5V3Z"></path><path d="M15 3V7H19"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteAsset(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
-     </td>`;
-    return `<tr><td>${a.name}</td>
+     </div></td>`;
+    const memoHtml = a.memo ? `<div style="font-size:11px;color:var(--sub);margin-top:2px;">${escHtmlAttr(a.memo)}</div>` : '';
+    return `<tr><td>${a.name}${memoHtml}</td>
      <td class="num">${fmt(a.amount)}</td>
      <td><span class="badge ${a.liquid?'liquid-yes':'liquid-no'}">${a.liquid?'가능':'불가'}</span></td>
      ${actionsHtml}</tr>`;
@@ -979,6 +1182,7 @@ function closeAllPopovers(){
   catPickerTargetId = null;
   catPickerTargetTxIndex = null;
   whoPickerCtx = null;
+  memoPickerTargetIndex = null;
 }
 
 let catPickerTargetId = null;
@@ -1266,6 +1470,7 @@ function openAssetModal(){
   document.getElementById('assetModalOverlay').classList.add('open');
   document.getElementById('am_as_name').value = '';
   document.getElementById('am_as_amount').value = '';
+  document.getElementById('am_as_memo').value = '';
 }
 function closeAssetModal(){
   document.getElementById('assetModalOverlay').classList.remove('open');
@@ -1275,8 +1480,9 @@ function submitAssetModal(){
   const owner = document.getElementById('am_as_owner').value;
   const amount = Number(document.getElementById('am_as_amount').value);
   const liquid = document.getElementById('am_as_liquid').value === 'true';
+  const memo = document.getElementById('am_as_memo').value.trim();
   if(!name || !amount){ alert('자산명, 금액은 꼭 입력해줘'); return; }
-  store.assets.push({name, owner, amount, liquid});
+  store.assets.push({name, owner, amount, liquid, memo});
   store.assetAsOf = new Date().toISOString().slice(0,10);
   save();
   closeAssetModal();
@@ -1515,6 +1721,93 @@ function render(){
 
   renderAssetTrend();
 
+  // goal (목표 자금 계획)
+  document.getElementById('goalTargetLabel').value = store.goal.targetLabel;
+  document.getElementById('goalTargetDate').value = store.goal.targetDate;
+  const goalMonthsLeft = monthsUntilGoal(store.goal.targetDate);
+  document.getElementById('goalCountdown').textContent = store.goal.targetDate
+    ? (goalMonthsLeft === null ? '' : (goalMonthsLeft >= 0 ? `(${formatGoalDate(store.goal.targetDate)}까지 ${goalMonthsLeft}개월 남음)` : `(${formatGoalDate(store.goal.targetDate)} 지남)`))
+    : '';
+
+  function goalRowHtml(item, i, kind){
+    const editing = kind==='cost' ? editingGoalCostIndex===i : editingGoalDeductionIndex===i;
+    const prefix = kind==='cost' ? 'gc' : 'gd';
+    const saveFn = kind==='cost' ? `saveEditGoalCost(${i})` : `saveEditGoalDeduction(${i})`;
+    const cancelFn = kind==='cost' ? 'cancelEditGoalCost()' : 'cancelEditGoalDeduction()';
+    const editFn = kind==='cost' ? `editGoalCost(${i})` : `editGoalDeduction(${i})`;
+    const delFn = kind==='cost' ? `deleteGoalCost(${i})` : `deleteGoalDeduction(${i})`;
+    if(editing){
+      return `<tr>
+        <td><input class="edit-input" type="text" id="edit_${prefix}_name_${i}" value="${escHtmlAttr(item.name)}"></td>
+        <td><input class="edit-input amount" type="number" id="edit_${prefix}_amount_${i}" value="${item.amount}"></td>
+        <td class="action-cell"><div class="action-cell-inner">
+          <button class="save-btn" onclick="${saveFn}">저장</button>
+          <button class="cancel-btn" onclick="${cancelFn}">취소</button>
+        </div></td>
+      </tr>`;
+    }
+    return `<tr><td>${item.name}</td><td class="num">${fmt(item.amount)}</td>
+     <td class="action-cell"><div class="action-cell-inner">
+       <button class="edit-btn" title="수정" onclick="${editFn}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+       <button class="del-btn" title="삭제" onclick="${delFn}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
+     </div></td></tr>`;
+  }
+
+  const goalCostTotal = store.goal.costItems.reduce((s,c)=>s+Number(c.amount||0),0);
+  const goalDeductionTotal = store.goal.deductionItems.reduce((s,c)=>s+Number(c.amount||0),0);
+  const goalRemaining = Math.max(0, goalCostTotal - goalDeductionTotal);
+
+  document.getElementById('goalCostTableBody').innerHTML = store.goal.costItems.map((c,i)=>goalRowHtml(c,i,'cost')).join('')
+    || '<tr><td colspan="3" style="text-align:center;color:var(--sub);padding:14px 0;">항목 없음</td></tr>';
+  document.getElementById('goalCostTotal').textContent = fmt(goalCostTotal) + '원';
+
+  document.getElementById('goalDeductionTableBody').innerHTML = store.goal.deductionItems.map((c,i)=>goalRowHtml(c,i,'deduction')).join('')
+    || '<tr><td colspan="3" style="text-align:center;color:var(--sub);padding:14px 0;">항목 없음</td></tr>';
+  document.getElementById('goalDeductionTotal').textContent = fmt(goalDeductionTotal) + '원';
+
+  document.getElementById('goalRemainingCard').textContent = fmt(goalRemaining) + '원';
+  document.getElementById('goalLiquidCard').textContent = fmt(assetLiquid) + '원';
+  const goalShortfall = Math.max(0, goalRemaining - assetLiquid);
+  document.getElementById('goalShortfallCard').textContent = fmt(goalShortfall) + '원';
+
+  const goalMonthlyCard = document.getElementById('goalMonthlyCard');
+  if(goalShortfall <= 0){
+    goalMonthlyCard.textContent = '달성 완료';
+  } else if(goalMonthsLeft === null){
+    goalMonthlyCard.textContent = '목표 시점을 설정해줘';
+  } else if(goalMonthsLeft <= 0){
+    goalMonthlyCard.textContent = '목표 시점 지남';
+  } else {
+    goalMonthlyCard.textContent = fmt(Math.ceil(goalShortfall / goalMonthsLeft)) + '원/월';
+  }
+
+  const goalPctBigEl = document.getElementById('goalPctBig');
+  const goalPctBadgeEl = document.getElementById('goalPctBadge');
+  const goalRemainPctEl = document.getElementById('goalRemainPctLabel');
+  if(goalRemaining <= 0){
+    document.getElementById('goalProgressBar').innerHTML = '<div class="cat-detail-empty" style="padding:6px 0;">필요 자금 내역을 입력하면 달성률을 볼 수 있어요</div>';
+    goalPctBigEl.textContent = '-';
+    goalPctBadgeEl.style.display = 'none';
+    goalRemainPctEl.textContent = '';
+    document.getElementById('goalAchievedLegend').textContent = '-';
+    document.getElementById('goalShortfallLegend').textContent = '-';
+  } else {
+    const goalPctRaw = assetLiquid/goalRemaining*100;
+    const goalPct = Math.min(100, goalPctRaw);
+    const goalPctLabel = goalPctRaw.toFixed(1);
+    const goalRemainPctLabel = Math.max(0, 100-goalPctRaw).toFixed(1);
+    goalPctBigEl.textContent = goalPctLabel + '%';
+    goalPctBadgeEl.style.display = '';
+    goalPctBadgeEl.style.left = goalPct + '%';
+    goalPctBadgeEl.textContent = goalPctLabel + '%';
+    goalRemainPctEl.textContent = goalPct < 100 ? (goalRemainPctLabel + '% 남음') : '';
+    document.getElementById('goalAchievedLegend').textContent = `${fmt(assetLiquid)}원 (${goalPctLabel}%)`;
+    document.getElementById('goalShortfallLegend').textContent = `${fmt(goalShortfall)}원 (${goalRemainPctLabel}%)`;
+    document.getElementById('goalProgressBar').innerHTML =
+      `<div class="ratio-seg" style="width:${goalPct}%;background:var(--accent);"></div>` +
+      (goalPct<100 ? `<div class="ratio-seg" style="width:${100-goalPct}%;background:#e7e9ed;"></div>` : '');
+  }
+
   // category totals (month-scoped)
   const catTotals = {};
   monthTx.forEach(t=>{ catTotals[t.cat] = (catTotals[t.cat]||0) + Number(t.amount||0); });
@@ -1557,17 +1850,17 @@ function render(){
         <td><input class="edit-input" type="text" id="edit_fx_day_${i}" value="${escHtmlAttr(f.day||'')}"></td>
         <td><input class="edit-input" type="text" id="edit_fx_name_${i}" value="${escHtmlAttr(f.name)}"></td>
         <td><input class="edit-input amount" type="number" id="edit_fx_amount_${i}" value="${f.amount}"></td>
-        <td class="action-cell">
+        <td class="action-cell"><div class="action-cell-inner">
           <button class="save-btn" onclick="saveEditFixed(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditFixed()">취소</button>
-        </td>
+        </div></td>
       </tr>`;
     }
     return `<tr><td>${f.day||''}</td><td>${f.name}</td><td class="num">${fmt(f.amount)}</td>
-     <td class="action-cell">
+     <td class="action-cell"><div class="action-cell-inner">
        <button class="edit-btn" title="수정" onclick="editFixed(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteFixed(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
-     </td></tr>`;
+     </div></td></tr>`;
   }
   function fixedTableHtml(items, total){
     return `<table>
@@ -1610,18 +1903,18 @@ function render(){
         <td><input class="edit-input" type="text" id="edit_inc_name_${i}" value="${escHtmlAttr(inc.name||'')}"></td>
         <td><input class="edit-input amount" type="number" id="edit_inc_amount_${i}" value="${inc.amount}"></td>
         <td><span class="badge ${inc.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('income', ${i}, this)">${inc.who}</span></td>
-        <td class="action-cell">
+        <td class="action-cell"><div class="action-cell-inner">
           <button class="save-btn" onclick="saveEditIncome(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditIncome()">취소</button>
-        </td>
+        </div></td>
       </tr>`;
     }
     return `<tr><td>${inc.date}</td><td>${inc.name||''}</td><td class="num">${fmt(inc.amount)}</td>
      <td><span class="badge ${inc.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('income', ${i}, this)">${inc.who}</span></td>
-     <td class="action-cell">
+     <td class="action-cell"><div class="action-cell-inner">
        <button class="edit-btn" title="수정" onclick="editIncome(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteIncome(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
-     </td></tr>`;
+     </div></td></tr>`;
   }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--sub);padding:14px 0;">등록된 수입이 없어요</td></tr>';
   document.getElementById('incomeTotal').textContent = fmt(monthIncome);
 
@@ -1632,17 +1925,17 @@ function render(){
         <td><input class="edit-input" type="text" id="edit_sv_day_${i}" value="${escHtmlAttr(f.day||'')}"></td>
         <td><input class="edit-input" type="text" id="edit_sv_name_${i}" value="${escHtmlAttr(f.name)}"></td>
         <td><input class="edit-input amount" type="number" id="edit_sv_amount_${i}" value="${f.amount}"></td>
-        <td class="action-cell">
+        <td class="action-cell"><div class="action-cell-inner">
           <button class="save-btn" onclick="saveEditSaving(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditSaving()">취소</button>
-        </td>
+        </div></td>
       </tr>`;
     }
     return `<tr><td>${f.day||''}</td><td>${f.name}</td><td class="num">${fmt(f.amount)}</td>
-     <td class="action-cell">
+     <td class="action-cell"><div class="action-cell-inner">
        <button class="edit-btn" title="수정" onclick="editSaving(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteSaving(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
-     </td></tr>`;
+     </div></td></tr>`;
   }
   function savingTableHtml(items, total){
     return `<table>
@@ -1732,18 +2025,18 @@ function render(){
             <option value="공동" ${t.who==='공동'?'selected':''}>공동</option>
           </select>
         </td>
-        <td class="action-cell">
+        <td class="action-cell"><div class="action-cell-inner">
           <button class="save-btn" onclick="saveEditTx(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditTx()">취소</button>
-        </td>
+        </div></td>
       </tr>`;
     }
     return `<tr><td>${t.date}</td><td><span class="cat" style="cursor:pointer;" title="클릭하면 카테고리를 바꿀 수 있어요" onclick="openCatPicker(null, ${i}, this)">${t.cat}</span></td><td>${t.detail||''}</td>
      <td class="num">${fmt(t.amount)}</td><td><span class="badge ${t.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('tx', ${i}, this)">${t.who}</span></td>
-     <td class="action-cell">
+     <td class="action-cell"><div class="action-cell-inner">
        <button class="edit-btn" title="수정" onclick="editTx(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteTransaction(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
-     </td></tr>`;
+     </div></td></tr>`;
   }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:20px 0;">검색 결과가 없어요</td></tr>';
 
   const visibleTotal = visibleTx.reduce((s,{t})=>s+Number(t.amount||0),0);
