@@ -132,11 +132,21 @@
   }
   .cat-picker-btn:hover{background:#eef1f6;}
   .cat-pill{
-    border:1px solid var(--line); background:#fafbfc; padding:7px 12px; border-radius:999px;
-    font-size:13px; cursor:pointer;
+    border:2px solid transparent; padding:7px 13px; border-radius:999px;
+    font-size:13px; font-weight:600; cursor:pointer;
   }
-  .cat-pill:hover{background:#eef1f6;}
-  .cat-pill.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+  .cat-pill:hover{filter:brightness(0.96);}
+  .cat-pill.active{border-color:currentColor;}
+  .popover-backdrop{position:fixed; inset:0; z-index:1000; background:transparent; display:none;}
+  .popover-backdrop.open{display:block;}
+  .popover-panel{
+    position:fixed; z-index:1001; background:#fff; border-radius:12px; padding:12px;
+    box-shadow:0 10px 30px rgba(0,0,0,.2); border:1px solid var(--line);
+    display:none; flex-direction:column; gap:8px; max-width:260px; visibility:hidden;
+  }
+  .popover-panel.open{display:flex;}
+  .popover-panel .cat-pill-wrap{display:flex; flex-wrap:wrap; gap:8px;}
+  .who-inline-group{display:flex; gap:8px; flex-wrap:nowrap;}
   .scroll-top-btn{
     position:fixed; right:20px; bottom:24px; width:46px; height:46px; border-radius:50%;
     background:var(--accent); color:#fff; border:none; cursor:pointer; display:none;
@@ -230,49 +240,54 @@
   </div>
 
   <div class="modal-overlay" id="importModalOverlay" onclick="if(event.target===this) closeImportModal()">
-    <div class="modal-box" style="max-width:480px;">
+    <div class="modal-box" style="max-width:560px;">
       <div class="modal-header">
         <h3>거래 내역 일괄 가져오기</h3>
         <button class="modal-close" onclick="closeImportModal()">×</button>
       </div>
-      <div class="modal-field">
-        <label>CSV 파일 첨부</label>
-        <input type="file" id="importFile" accept=".csv,.txt" onchange="onImportFileSelected(event)">
-      </div>
-      <div class="modal-field">
-        <label>또는 엑셀에서 셀 범위를 복사해서 붙여넣기</label>
-        <textarea id="importPasteArea" rows="8" placeholder="날짜	대분류	중분류	소분류	금액	구분
+
+      <div id="importInputView">
+        <div class="modal-field">
+          <label>CSV 파일 첨부</label>
+          <input type="file" id="importFile" accept=".csv,.txt" onchange="onImportFileSelected(event)">
+        </div>
+        <div class="modal-field">
+          <label>또는 엑셀에서 셀 범위를 복사해서 붙여넣기</label>
+          <textarea id="importPasteArea" rows="8" placeholder="날짜	대분류	중분류	소분류	금액	구분
 08월 01일	식사	점심		12000	다혜"></textarea>
+        </div>
+        <div class="hint">한 줄에 거래 하나씩, 값은 쉼표(,) 또는 탭으로 구분돼요. 순서: 날짜, 대분류, (중분류), (소분류), 금액, (구분: 다혜/동구/공동 — 생략하면 공동으로 들어가요). 엑셀 파일(.xlsx)은 이 화면에서 직접 열 수 없으니, CSV로 저장하거나 셀을 복사해서 붙여넣어줘.</div>
+        <div class="modal-footer">
+          <button class="cancel-btn" onclick="closeImportModal()">취소</button>
+          <button class="add-btn" onclick="previewImport()">미리보기</button>
+        </div>
       </div>
-      <div class="hint">한 줄에 거래 하나씩, 값은 쉼표(,) 또는 탭으로 구분돼요. 순서: 날짜, 대분류, (중분류), (소분류), 금액, (구분: 다혜/동구/공동 — 생략하면 공동으로 들어가요). 엑셀 파일(.xlsx)은 이 화면에서 직접 열 수 없으니, CSV로 저장하거나 셀을 복사해서 붙여넣어줘.</div>
-      <div class="modal-footer">
-        <button class="cancel-btn" onclick="closeImportModal()">취소</button>
-        <button class="add-btn" onclick="submitImport()">가져오기</button>
+
+      <div id="importPreviewView" style="display:none;">
+        <div class="hint" id="importPreviewSummary" style="margin-bottom:10px;"></div>
+        <div style="max-height:320px; overflow-y:auto; border:1px solid var(--line); border-radius:8px;">
+          <table>
+            <thead><tr><th>날짜</th><th>대분류</th><th>내용</th><th class="num">금액</th><th>구분</th><th>상태</th></tr></thead>
+            <tbody id="importPreviewBody"></tbody>
+          </table>
+        </div>
+        <div class="modal-footer">
+          <button class="cancel-btn" onclick="backToImportInput()">다시 수정</button>
+          <button class="add-btn" onclick="confirmImport()">추가하기</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="modal-overlay" id="catPickerOverlay" onclick="if(event.target===this) closeCatPicker()">
-    <div class="modal-box" style="max-width:340px;">
-      <div class="modal-header">
-        <h3>카테고리 선택</h3>
-        <button class="modal-close" onclick="closeCatPicker()">×</button>
-      </div>
-      <div class="modal-field">
-        <input type="text" id="catPickerCustomInput" placeholder="직접 입력 후 Enter" onkeydown="if(event.key==='Enter'){ event.preventDefault(); confirmCatPickerCustom(); }">
-      </div>
-      <div id="catPickerList" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
-    </div>
+  <div class="popover-backdrop" id="popoverBackdrop" onclick="closeAllPopovers()"></div>
+
+  <div class="popover-panel" id="catPickerPanel">
+    <input type="text" id="catPickerCustomInput" placeholder="직접 입력 후 Enter" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit;" onkeydown="if(event.key==='Enter'){ event.preventDefault(); confirmCatPickerCustom(); }">
+    <div id="catPickerList" class="cat-pill-wrap"></div>
   </div>
 
-  <div class="modal-overlay" id="whoPickerOverlay" onclick="if(event.target===this) closeWhoPicker()">
-    <div class="modal-box" style="max-width:300px;">
-      <div class="modal-header">
-        <h3>구분 선택</h3>
-        <button class="modal-close" onclick="closeWhoPicker()">×</button>
-      </div>
-      <div id="whoPickerList" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
-    </div>
+  <div class="popover-panel" id="whoPickerPanel">
+    <div id="whoPickerList" class="cat-pill-wrap"></div>
   </div>
 
   <div class="modal-overlay" id="incomeModalOverlay" onclick="if(event.target===this) closeIncomeModal()">
@@ -492,17 +507,14 @@
             </div>
           </td>
           <td>
-            <button type="button" class="cat-picker-btn" id="quickTxCat_btn" onclick="openCatPicker('quickTxCat')">카테고리 선택</button>
+            <button type="button" class="cat-picker-btn" id="quickTxCat_btn" onclick="openCatPicker('quickTxCat', undefined, this)">선택</button>
             <input type="hidden" id="quickTxCat">
           </td>
           <td><input class="edit-input" type="text" id="quickTxDetail" placeholder="내용(선택)"></td>
           <td><input class="edit-input amount" type="number" id="quickTxAmount" placeholder="금액"></td>
           <td>
-            <select class="edit-select" id="quickTxWho">
-              <option value="다혜">다혜</option>
-              <option value="동구">동구</option>
-              <option value="공동" selected>공동</option>
-            </select>
+            <button type="button" class="cat-picker-btn" id="quickTxWho_btn" onclick="openWhoPicker(null, this, 'quickTxWho')">구분</button>
+            <input type="hidden" id="quickTxWho" value="공동">
           </td>
           <td class="action-cell">
             <button class="save-btn" onclick="submitQuickTx()">추가</button>
@@ -916,9 +928,54 @@ function normalizeDateStr(raw){
   return s;
 }
 
+function positionPopover(panelEl, anchorEl){
+  if(!anchorEl){ return; }
+  const rect = anchorEl.getBoundingClientRect();
+  const panelWidth = panelEl.offsetWidth || 220;
+  const panelHeight = panelEl.offsetHeight || 100;
+  let left = rect.left;
+  let top = rect.bottom + 6;
+  const maxLeft = window.innerWidth - panelWidth - 10;
+  if(left > maxLeft) left = Math.max(10, maxLeft);
+  if(left < 10) left = 10;
+  if(top + panelHeight > window.innerHeight - 10){
+    top = rect.top - panelHeight - 6;
+    if(top < 10) top = 10;
+  }
+  panelEl.style.left = left + 'px';
+  panelEl.style.top = top + 'px';
+}
+function showPopover(panelId, anchorEl){
+  const panel = document.getElementById(panelId);
+  document.getElementById('popoverBackdrop').classList.add('open');
+  panel.classList.add('open');
+  panel.style.visibility = 'hidden';
+  requestAnimationFrame(()=>{
+    positionPopover(panel, anchorEl);
+    panel.style.visibility = 'visible';
+  });
+}
+function selectInlineWho(groupId, hiddenId, value){
+  const hidden = document.getElementById(hiddenId);
+  if(hidden) hidden.value = value;
+  const group = document.getElementById(groupId);
+  if(!group) return;
+  group.querySelectorAll('.cat-pill').forEach(btn=>{
+    btn.classList.toggle('active', btn.getAttribute('data-value')===value);
+  });
+}
+function closeAllPopovers(){
+  document.getElementById('popoverBackdrop').classList.remove('open');
+  document.querySelectorAll('.popover-panel').forEach(p=>p.classList.remove('open'));
+  catPickerTargetId = null;
+  catPickerTargetTxIndex = null;
+  whoPickerTargetTxIndex = null;
+  whoPickerTargetId = null;
+}
+
 let catPickerTargetId = null;
 let catPickerTargetTxIndex = null;
-function openCatPicker(targetInputId, txIndex){
+function openCatPicker(targetInputId, txIndex, anchorEl){
   catPickerTargetId = targetInputId || null;
   catPickerTargetTxIndex = (txIndex !== undefined && txIndex !== null) ? txIndex : null;
   const hidden = targetInputId ? document.getElementById(targetInputId) : null;
@@ -927,13 +984,16 @@ function openCatPicker(targetInputId, txIndex){
     : (hidden ? hidden.value : '');
   document.getElementById('catPickerCustomInput').value = '';
   const allCats = Array.from(new Set([...DEFAULT_CATS, ...store.transactions.map(t=>t.cat)])).filter(Boolean);
-  document.getElementById('catPickerList').innerHTML = allCats.map(c=>
-    `<button type="button" class="cat-pill ${currentValue===c?'active':''}" onclick="selectCatPicker('${escAttr(c)}')">${c}</button>`
-  ).join('');
-  document.getElementById('catPickerOverlay').classList.add('open');
+  document.getElementById('catPickerList').innerHTML = allCats.map(c=>{
+    const bg = colorForCat(c);
+    const active = currentValue===c;
+    return `<button type="button" class="cat-pill ${active?'active':''}" style="background:${bg};color:#4a4a4a;" onclick="selectCatPicker('${escAttr(c)}')">${c}</button>`;
+  }).join('');
+  showPopover('catPickerPanel', anchorEl);
 }
 function closeCatPicker(){
-  document.getElementById('catPickerOverlay').classList.remove('open');
+  document.getElementById('catPickerPanel').classList.remove('open');
+  document.getElementById('popoverBackdrop').classList.remove('open');
   catPickerTargetId = null;
   catPickerTargetTxIndex = null;
 }
@@ -963,26 +1023,48 @@ function applyCatPickerValue(cat){
   closeCatPicker();
 }
 let whoPickerTargetTxIndex = null;
-function openWhoPicker(i){
-  whoPickerTargetTxIndex = i;
-  const cur = store.transactions[i] ? store.transactions[i].who : '';
+let whoPickerTargetId = null;
+function openWhoPicker(i, anchorEl, targetInputId){
+  whoPickerTargetTxIndex = (i !== undefined && i !== null) ? i : null;
+  whoPickerTargetId = targetInputId || null;
+  let cur = '';
+  if(whoPickerTargetTxIndex !== null){
+    cur = store.transactions[whoPickerTargetTxIndex] ? store.transactions[whoPickerTargetTxIndex].who : '';
+  } else if(whoPickerTargetId){
+    const hidden = document.getElementById(whoPickerTargetId);
+    cur = hidden ? hidden.value : '';
+  }
   const order = ['다혜','동구','공동'];
-  document.getElementById('whoPickerList').innerHTML = order.map(w=>
-    `<button type="button" class="cat-pill ${cur===w?'active':''}" onclick="selectWhoPicker('${w}')">${w}</button>`
-  ).join('');
-  document.getElementById('whoPickerOverlay').classList.add('open');
+  document.getElementById('whoPickerList').innerHTML = order.map(w=>{
+    const st = WHO_STYLE[w];
+    const active = cur===w;
+    return `<button type="button" class="cat-pill ${active?'active':''}" style="background:${st.bg};color:${st.fg};" onclick="selectWhoPicker('${w}')">${w}</button>`;
+  }).join('');
+  showPopover('whoPickerPanel', anchorEl);
 }
 function closeWhoPicker(){
-  document.getElementById('whoPickerOverlay').classList.remove('open');
+  document.getElementById('whoPickerPanel').classList.remove('open');
+  document.getElementById('popoverBackdrop').classList.remove('open');
   whoPickerTargetTxIndex = null;
+  whoPickerTargetId = null;
 }
 function selectWhoPicker(who){
-  if(whoPickerTargetTxIndex !== null && store.transactions[whoPickerTargetTxIndex]){
-    store.transactions[whoPickerTargetTxIndex].who = who;
-    save();
+  if(whoPickerTargetTxIndex !== null){
+    if(store.transactions[whoPickerTargetTxIndex]){
+      store.transactions[whoPickerTargetTxIndex].who = who;
+      save();
+    }
+    closeWhoPicker();
+    render();
+    return;
+  }
+  if(whoPickerTargetId){
+    const hidden = document.getElementById(whoPickerTargetId);
+    if(hidden) hidden.value = who;
+    const btn = document.getElementById(whoPickerTargetId + '_btn');
+    if(btn) btn.textContent = who;
   }
   closeWhoPicker();
-  render();
 }
 
 function openAddModal(){
@@ -1011,17 +1093,18 @@ function renderAddModalFields(){
         </div>
         <div class="modal-field">
           <label>대분류</label>
-          <button type="button" class="cat-picker-btn" id="am_tx_cat_btn" onclick="openCatPicker('am_tx_cat')">카테고리 선택</button>
+          <button type="button" class="cat-picker-btn" id="am_tx_cat_btn" onclick="openCatPicker('am_tx_cat', undefined, this)">카테고리 선택</button>
           <input type="hidden" id="am_tx_cat">
         </div>
         <div class="modal-field"><label>중분류 / 소분류</label><input type="text" id="am_tx_detail" placeholder="예: 점심"></div>
         <div class="modal-field"><label>금액</label><input type="number" id="am_tx_amount" placeholder="금액"></div>
         <div class="modal-field full"><label>구분</label>
-          <select id="am_tx_who">
-            <option value="다혜">다혜</option>
-            <option value="동구">동구</option>
-            <option value="공동">공동</option>
-          </select>
+          <div class="who-inline-group" id="am_tx_who_group">
+            <button type="button" class="cat-pill active" data-value="다혜" style="background:var(--dahye-bg);color:var(--dahye-fg);" onclick="selectInlineWho('am_tx_who_group','am_tx_who','다혜')">다혜</button>
+            <button type="button" class="cat-pill" data-value="동구" style="background:var(--donggu-bg);color:var(--donggu-fg);" onclick="selectInlineWho('am_tx_who_group','am_tx_who','동구')">동구</button>
+            <button type="button" class="cat-pill" data-value="공동" style="background:var(--gongdong-bg);color:var(--gongdong-fg);" onclick="selectInlineWho('am_tx_who_group','am_tx_who','공동')">공동</button>
+          </div>
+          <input type="hidden" id="am_tx_who" value="다혜">
         </div>
       </div>`;
   } else if(type === 'fixed'){
@@ -1096,10 +1179,11 @@ function submitQuickTx(){
   save();
   document.getElementById('quickTxDate').value = '';
   document.getElementById('quickTxCat').value = '';
-  document.getElementById('quickTxCat_btn').textContent = '카테고리 선택';
+  document.getElementById('quickTxCat_btn').textContent = '선택';
   document.getElementById('quickTxDetail').value = '';
   document.getElementById('quickTxAmount').value = '';
   document.getElementById('quickTxWho').value = '공동';
+  document.getElementById('quickTxWho_btn').textContent = '구분';
   render();
 }
 
@@ -1168,9 +1252,15 @@ function openImportModal(){
   document.getElementById('importModalOverlay').classList.add('open');
   document.getElementById('importFile').value = '';
   document.getElementById('importPasteArea').value = '';
+  importParsedRows = [];
+  document.getElementById('importInputView').style.display = 'block';
+  document.getElementById('importPreviewView').style.display = 'none';
 }
 function closeImportModal(){
   document.getElementById('importModalOverlay').classList.remove('open');
+  importParsedRows = [];
+  document.getElementById('importInputView').style.display = 'block';
+  document.getElementById('importPreviewView').style.display = 'none';
 }
 function onImportFileSelected(e){
   const file = e.target.files[0];
@@ -1195,7 +1285,9 @@ function rowToTx(colsIn){
   const detail = cols.filter(c=>c).join(' · ');
   return {date, cat, detail, amount, who};
 }
-function submitImport(){
+
+let importParsedRows = [];
+function previewImport(){
   const text = document.getElementById('importPasteArea').value.trim();
   if(!text){ alert('CSV 파일을 첨부하거나 내용을 붙여넣어줘'); return; }
   let lines = text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length>0);
@@ -1206,26 +1298,51 @@ function submitImport(){
       lines = lines.slice(1);
     }
   }
-  let added = 0, skipped = 0, lastMonth = null;
-  lines.forEach(line=>{
+  importParsedRows = lines.map(line=>{
     const delim = line.includes('\t') ? '\t' : ',';
     const cols = line.split(delim);
     const tx = rowToTx(cols);
-    if(!tx.date || !tx.cat || !tx.amount || isNaN(tx.amount) || tx.amount <= 0){ skipped++; return; }
-    store.transactions.push(tx);
-    const mo = extractMonth(tx.date);
-    if(mo) lastMonth = mo;
-    added++;
+    const valid = !!(tx.date && tx.cat && tx.amount && !isNaN(tx.amount) && tx.amount > 0);
+    return Object.assign({}, tx, {valid});
   });
-  if(added === 0){
-    alert('가져올 수 있는 데이터가 없어요. 형식을 확인해줘 (날짜, 대분류, 금액은 꼭 필요해).');
-    return;
-  }
+  renderImportPreview();
+  document.getElementById('importInputView').style.display = 'none';
+  document.getElementById('importPreviewView').style.display = 'block';
+}
+function renderImportPreview(){
+  const validCount = importParsedRows.filter(r=>r.valid).length;
+  const invalidCount = importParsedRows.length - validCount;
+  document.getElementById('importPreviewSummary').textContent = importParsedRows.length
+    ? `총 ${importParsedRows.length}건 중 ${validCount}건 추가 가능` + (invalidCount>0 ? `, ${invalidCount}건은 형식 오류로 제외돼요` : '')
+    : '가져올 수 있는 데이터가 없어요. 형식을 확인해줘.';
+  document.getElementById('importPreviewBody').innerHTML = importParsedRows.map(r=>{
+    const rowStyle = r.valid ? '' : ' style="color:#b23b3b;background:#fdeaea;"';
+    return `<tr${rowStyle}>
+      <td>${r.date || '-'}</td><td>${r.cat || '-'}</td><td>${r.detail || ''}</td>
+      <td class="num">${(r.amount && !isNaN(r.amount)) ? fmt(r.amount) : '-'}</td><td>${r.who || ''}</td>
+      <td>${r.valid ? '정상' : '오류'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:14px 0;">가져올 데이터가 없어요</td></tr>';
+}
+function backToImportInput(){
+  document.getElementById('importPreviewView').style.display = 'none';
+  document.getElementById('importInputView').style.display = 'block';
+}
+function confirmImport(){
+  const validRows = importParsedRows.filter(r=>r.valid);
+  if(validRows.length === 0){ alert('추가할 수 있는 데이터가 없어요.'); return; }
+  let lastMonth = null;
+  validRows.forEach(r=>{
+    store.transactions.push({date:r.date, cat:r.cat, detail:r.detail, amount:r.amount, who:r.who});
+    const mo = extractMonth(r.date);
+    if(mo) lastMonth = mo;
+  });
+  const skipped = importParsedRows.length - validRows.length;
   if(lastMonth) selectedMonth = lastMonth;
   save();
   closeImportModal();
   render();
-  alert(`${added}건 가져왔어${skipped > 0 ? ` (형식이 안 맞는 ${skipped}건은 건너뜀)` : ''}`);
+  alert(`${validRows.length}건 가져왔어${skipped > 0 ? ` (형식이 안 맞는 ${skipped}건은 건너뜀)` : ''}`);
 }
 
 let openCat = null;
@@ -1500,7 +1617,7 @@ function render(){
       return `<tr>
         <td><input class="edit-input" type="text" id="edit_date_${i}" value="${escHtmlAttr(t.date)}"></td>
         <td>
-          <button type="button" class="cat-picker-btn" id="edit_cat_${i}_btn" onclick="openCatPicker('edit_cat_${i}')">${escHtmlAttr(t.cat)}</button>
+          <button type="button" class="cat-picker-btn" id="edit_cat_${i}_btn" onclick="openCatPicker('edit_cat_${i}', undefined, this)">${escHtmlAttr(t.cat)}</button>
           <input type="hidden" id="edit_cat_${i}" value="${escHtmlAttr(t.cat)}">
         </td>
         <td><input class="edit-input" type="text" id="edit_detail_${i}" value="${escHtmlAttr(t.detail||'')}"></td>
@@ -1518,8 +1635,8 @@ function render(){
         </td>
       </tr>`;
     }
-    return `<tr><td>${t.date}</td><td><span class="cat" style="cursor:pointer;" title="클릭하면 카테고리를 바꿀 수 있어요" onclick="openCatPicker(null, ${i})">${t.cat}</span></td><td>${t.detail||''}</td>
-     <td class="num">${fmt(t.amount)}</td><td><span class="badge ${t.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker(${i})">${t.who}</span></td>
+    return `<tr><td>${t.date}</td><td><span class="cat" style="cursor:pointer;" title="클릭하면 카테고리를 바꿀 수 있어요" onclick="openCatPicker(null, ${i}, this)">${t.cat}</span></td><td>${t.detail||''}</td>
+     <td class="num">${fmt(t.amount)}</td><td><span class="badge ${t.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker(${i}, this)">${t.who}</span></td>
      <td class="action-cell">
        <button class="edit-btn" title="수정" onclick="editTx(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteTransaction(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
