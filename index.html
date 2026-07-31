@@ -47,12 +47,18 @@
   .goal-cards{grid-template-columns:repeat(4,1fr);}
   .tx-table{table-layout:fixed;}
   .tx-table td, .tx-table th{overflow:hidden; text-overflow:ellipsis;}
-  .tx-table td:first-child, .tx-table th:first-child{white-space:nowrap; width:13%;}
-  .tx-table th:nth-child(2), .tx-table td:nth-child(2){width:11%;}
-  .tx-table th:nth-child(4), .tx-table td:nth-child(4){width:14%; white-space:nowrap;}
-  .tx-table th:nth-child(5), .tx-table td:nth-child(5){width:14%;}
+  .tx-table td:first-child, .tx-table th:first-child{width:0; padding:0; border:none; overflow:hidden;}
+  .tx-table.filter-mode td:first-child, .tx-table.filter-mode th:first-child{width:26px; padding:8px 10px; border-bottom:1px solid var(--line); overflow:visible; text-align:center;}
+  .tx-table td:nth-child(2), .tx-table th:nth-child(2){white-space:nowrap; width:13%;}
+  .tx-table th:nth-child(3), .tx-table td:nth-child(3){width:11%;}
+  .tx-table th:nth-child(5), .tx-table td:nth-child(5){width:14%; white-space:nowrap;}
+  .tx-table th:nth-child(6), .tx-table td:nth-child(6){width:14%;}
   .tx-table th:last-child, .tx-table td:last-child{width:14%;}
   .tx-table .badge{white-space:nowrap;}
+  .tx-table input[type="checkbox"]{width:15px; height:15px; cursor:pointer; accent-color:var(--accent);}
+  .tx-filter-bar{display:none; align-items:center; gap:10px; flex-wrap:wrap; margin:-4px 0 14px;}
+  .tx-filter-bar select{border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px; font-family:inherit; background:#fafbfc;}
+  .tx-filter-bar input[type="text"]{flex:1; min-width:140px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px; font-family:inherit;}
   .quick-tx-actions{display:flex; align-items:center; justify-content:flex-start; gap:10px;}
   .quick-tx-actions .cat-picker-btn{width:auto; flex-shrink:0;}
   @media(max-width:640px){
@@ -60,10 +66,11 @@
     .tx-table th, .tx-table td{padding:7px 3px; font-size:11.5px;}
     .tx-table .cat{padding:2px 5px; font-size:10.5px; white-space:normal; word-break:keep-all; line-height:1.3;}
     .tx-table .badge{padding:2px 5px; font-size:10px;}
-    .tx-table td:first-child, .tx-table th:first-child{width:16%; white-space:normal;}
-    .tx-table th:nth-child(2), .tx-table td:nth-child(2){width:15%;}
-    .tx-table th:nth-child(4), .tx-table td:nth-child(4){width:15%;}
-    .tx-table th:nth-child(5), .tx-table td:nth-child(5){width:12%;}
+    .tx-table.filter-mode td:first-child, .tx-table.filter-mode th:first-child{width:22px;}
+    .tx-table td:nth-child(2), .tx-table th:nth-child(2){width:16%; white-space:normal;}
+    .tx-table th:nth-child(3), .tx-table td:nth-child(3){width:15%;}
+    .tx-table th:nth-child(5), .tx-table td:nth-child(5){width:15%;}
+    .tx-table th:nth-child(6), .tx-table td:nth-child(6){width:12%;}
     .tx-table th:last-child, .tx-table td:last-child{width:13%;}
     .tx-table .action-cell-inner{gap:0;}
     .tx-table .edit-btn, .tx-table .del-btn{padding:3px;}
@@ -116,7 +123,7 @@
   .add-btn{border:none; border-radius:8px; padding:7px 14px; background:var(--accent); color:#fff; font-size:13px; font-weight:600; cursor:pointer;}
   .add-btn:hover{opacity:.9;}
   .hint{font-size:11.5px; color:var(--sub); margin-top:6px;}
-  .search-wrap{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+  .search-wrap{display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
   .search-input{
     flex:1; max-width:340px; border:1px solid var(--line); border-radius:9px; padding:8px 12px;
     font-size:13.5px; font-family:inherit; background:#fafbfc;
@@ -515,8 +522,8 @@
         </div>
 
         <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:12.5px; flex-wrap:wrap; gap:8px;">
-          <span style="color:var(--accent); font-weight:600;">● 달성 <span id="goalAchievedLegend">-</span></span>
-          <span style="color:#b23b3b; font-weight:600;">● 부족 <span id="goalShortfallLegend">-</span></span>
+          <span style="color:var(--accent); font-weight:600;">● <span id="goalAchievedLabel">달성</span> <span id="goalAchievedLegend">-</span></span>
+          <span id="goalShortfallWrap" style="color:#b23b3b; font-weight:600;">● <span id="goalShortfallLabel">부족</span> <span id="goalShortfallLegend">-</span></span>
         </div>
       </div>
       <div class="hint">계산식: 필요 자금 합계 − 이미 마련된 돈 합계 = 최종 모아야 할 돈. 달성률은 (현재 즉시 현금화 가능 자산 ÷ 최종 모아야 할 돈)으로 계산돼요.</div>
@@ -603,14 +610,30 @@
     <div class="search-wrap">
       <input type="text" id="txSearch" class="search-input" placeholder="검색 (날짜·분류·내용·다혜/동구/공동)" oninput="onTxSearch(this.value)">
       <span class="search-count" id="txSearchCount"></span>
+      <span id="txSearchTotal" style="font-weight:700; font-size:13.5px; white-space:nowrap;"></span>
+      <button type="button" class="tab-btn" id="txFilterToggleBtn" style="margin-left:auto; padding:8px 16px; font-size:12.5px;" onclick="toggleTxFilterMode()">🔎 필터로 합계 계산</button>
     </div>
-    <table class="tx-table">
+    <div class="tx-filter-bar" id="txFilterBar">
+      <select id="txFilterWho" onchange="onTxFilterCriteriaChange()">
+        <option value="all">구분: 전체</option>
+        <option value="다혜">다혜</option>
+        <option value="동구">동구</option>
+        <option value="공동">공동</option>
+      </select>
+      <select id="txFilterCat" onchange="onTxFilterCriteriaChange()">
+        <option value="all">카테고리: 전체</option>
+      </select>
+      <input type="text" id="txFilterKeyword" placeholder="키워드 (내용/카테고리)" oninput="onTxFilterCriteriaChange()">
+      <span class="hint" style="margin:0;">체크된 항목만 아래 합계에 더해져요. 조건에 맞는 항목이 기본으로 체크돼요.</span>
+    </div>
+    <table class="tx-table" id="txTable">
       <thead>
-        <tr><th>날짜</th><th>대분류</th><th>중분류 / 소분류</th><th class="num">금액</th><th>구분</th><th></th></tr>
+        <tr><th><input type="checkbox" id="txSelectAllCheckbox" title="전체 선택/해제" onchange="toggleAllTxChecked(this.checked)"></th><th>날짜</th><th>대분류</th><th>중분류 / 소분류</th><th class="num">금액</th><th>구분</th><th></th></tr>
       </thead>
       <tbody id="txTableBody"></tbody>
       <tbody>
         <tr>
+          <td></td>
           <td>
             <div class="date-input-wrap">
               <input type="text" class="edit-input" id="quickTxDate" placeholder="예: 08월 01일">
@@ -635,7 +658,7 @@
           </td>
         </tr>
       </tbody>
-      <tfoot><tr class="total"><td colspan="3" id="txTotalLabel">총합계</td><td class="num" id="txTotal">0</td><td></td><td></td></tr></tfoot>
+      <tfoot><tr class="total"><td colspan="4" id="txTotalLabel">총합계</td><td class="num" id="txTotal">0</td><td></td><td></td></tr></tfoot>
     </table>
     <datalist id="catlist"></datalist>
     <div class="hint">상단 "데이터 추가" 버튼으로 새 거래를 넣으면 위 요약·그래프·합계가 자동으로 다시 계산돼요. 표 맨 아래 줄에서도 바로 추가할 수 있어요.</div>
@@ -1606,6 +1629,33 @@ let openWho = null;
 let editingTxIndex = null;
 let txSearchTerm = '';
 function onTxSearch(v){ txSearchTerm = v; render(); }
+let txCheckedExclude = new Set();
+let lastTxFilterSignature = null;
+let lastVisibleTxIndices = [];
+function toggleTxChecked(i, checked){
+  if(checked) txCheckedExclude.delete(i); else txCheckedExclude.add(i);
+  render();
+}
+function toggleAllTxChecked(checked){
+  lastVisibleTxIndices.forEach(i=>{
+    if(checked) txCheckedExclude.delete(i); else txCheckedExclude.add(i);
+  });
+  render();
+}
+let txFilterMode = false;
+let txFilterWho = 'all';
+let txFilterCat = 'all';
+let txFilterKeyword = '';
+function toggleTxFilterMode(){
+  txFilterMode = !txFilterMode;
+  render();
+}
+function onTxFilterCriteriaChange(){
+  txFilterWho = document.getElementById('txFilterWho').value;
+  txFilterCat = document.getElementById('txFilterCat').value;
+  txFilterKeyword = document.getElementById('txFilterKeyword').value;
+  render();
+}
 let ledgerView = 'all';
 function openLedgerViewPicker(anchorEl){
   const order = [['all','전체'], ['다혜','다혜'], ['동구','동구'], ['공동','공동']];
@@ -1786,36 +1836,76 @@ function render(){
   document.getElementById('goalShortfallCard').textContent = fmt(goalShortfall) + '원';
 
   const goalMonthlyCard = document.getElementById('goalMonthlyCard');
-  if(goalShortfall <= 0){
-    goalMonthlyCard.textContent = '달성 완료';
+  const goalMonthlyCardLabel = document.querySelector('#goalMonthlyCard').previousElementSibling;
+  if(goalCostTotal <= 0){
+    goalMonthlyCard.textContent = '목표를 입력해줘';
+    goalMonthlyCard.style.color = '';
+    if(goalMonthlyCardLabel) goalMonthlyCardLabel.textContent = '월 저축 필요액';
+  } else if(goalShortfall <= 0){
+    const overAmount = Math.max(0, (goalDeductionTotal + assetLiquid) - goalCostTotal);
+    goalMonthlyCard.textContent = '+' + fmt(overAmount) + '원';
+    goalMonthlyCard.style.color = '#2f8f5b';
+    if(goalMonthlyCardLabel) goalMonthlyCardLabel.textContent = '초과 달성 금액';
   } else if(goalMonthsLeft === null){
     goalMonthlyCard.textContent = '목표 시점을 설정해줘';
+    goalMonthlyCard.style.color = '';
+    if(goalMonthlyCardLabel) goalMonthlyCardLabel.textContent = '월 저축 필요액';
   } else if(goalMonthsLeft <= 0){
     goalMonthlyCard.textContent = '목표 시점 지남';
+    goalMonthlyCard.style.color = '';
+    if(goalMonthlyCardLabel) goalMonthlyCardLabel.textContent = '월 저축 필요액';
   } else {
     goalMonthlyCard.textContent = fmt(Math.ceil(goalShortfall / goalMonthsLeft)) + '원/월';
+    goalMonthlyCard.style.color = '';
+    if(goalMonthlyCardLabel) goalMonthlyCardLabel.textContent = '월 저축 필요액';
   }
 
   const goalPctBigEl = document.getElementById('goalPctBig');
   const goalPctBadgeEl = document.getElementById('goalPctBadge');
   const goalRemainPctEl = document.getElementById('goalRemainPctLabel');
-  if(goalRemaining <= 0){
+  const goalAchievedLabelEl = document.getElementById('goalAchievedLabel');
+  const goalShortfallLabelEl = document.getElementById('goalShortfallLabel');
+  const goalShortfallWrapEl = document.getElementById('goalShortfallWrap');
+  if(goalCostTotal <= 0){
     document.getElementById('goalProgressBar').innerHTML = '<div class="cat-detail-empty" style="padding:6px 0;">필요 자금 내역을 입력하면 달성률을 볼 수 있어요</div>';
     goalPctBigEl.textContent = '-';
+    goalPctBigEl.style.color = 'var(--accent)';
     goalPctBadgeEl.style.display = 'none';
     goalRemainPctEl.textContent = '';
+    goalAchievedLabelEl.textContent = '달성';
+    goalShortfallLabelEl.textContent = '부족';
+    goalShortfallWrapEl.style.color = '#b23b3b';
     document.getElementById('goalAchievedLegend').textContent = '-';
     document.getElementById('goalShortfallLegend').textContent = '-';
+  } else if(goalRemaining <= 0){
+    // 이미 마련된 돈만으로 목표 금액을 넘어선 상태 (현금성 자산은 전부 여유분)
+    const coveredTotal = goalDeductionTotal + assetLiquid;
+    const overPct = coveredTotal / goalCostTotal * 100;
+    const surplus = Math.max(0, coveredTotal - goalCostTotal);
+    goalPctBigEl.textContent = overPct.toFixed(1) + '%';
+    goalPctBigEl.style.color = '#2f8f5b';
+    goalPctBadgeEl.style.display = 'none';
+    goalRemainPctEl.textContent = '';
+    goalAchievedLabelEl.textContent = '달성';
+    document.getElementById('goalAchievedLegend').textContent = `${fmt(coveredTotal)}원 (${overPct.toFixed(1)}%)`;
+    goalShortfallLabelEl.textContent = '초과';
+    document.getElementById('goalShortfallLegend').textContent = `${fmt(surplus)}원`;
+    goalShortfallWrapEl.style.color = '#2f8f5b';
+    document.getElementById('goalProgressBar').innerHTML = `<div class="ratio-seg" style="width:100%;background:var(--accent);"></div>`;
   } else {
     const goalPctRaw = assetLiquid/goalRemaining*100;
     const goalPct = Math.min(100, goalPctRaw);
     const goalPctLabel = goalPctRaw.toFixed(1);
     const goalRemainPctLabel = Math.max(0, 100-goalPctRaw).toFixed(1);
     goalPctBigEl.textContent = goalPctLabel + '%';
+    goalPctBigEl.style.color = 'var(--accent)';
     goalPctBadgeEl.style.display = '';
     goalPctBadgeEl.style.left = goalPct + '%';
     goalPctBadgeEl.textContent = goalPctLabel + '%';
     goalRemainPctEl.textContent = goalPct < 100 ? (goalRemainPctLabel + '% 남음') : '';
+    goalAchievedLabelEl.textContent = '달성';
+    goalShortfallLabelEl.textContent = '부족';
+    goalShortfallWrapEl.style.color = '#b23b3b';
     document.getElementById('goalAchievedLegend').textContent = `${fmt(assetLiquid)}원 (${goalPctLabel}%)`;
     document.getElementById('goalShortfallLegend').textContent = `${fmt(goalShortfall)}원 (${goalRemainPctLabel}%)`;
     document.getElementById('goalProgressBar').innerHTML =
@@ -2023,9 +2113,45 @@ function render(){
     ? monthFilteredTx.filter(({t})=> `${t.date} ${t.cat} ${t.detail||''} ${t.who} ${t.amount}`.toLowerCase().includes(term))
     : monthFilteredTx;
 
-  document.getElementById('txTableBody').innerHTML = visibleTx.map(({t,i})=>{
+  // category datalist (all-time categories, computed early so the filter bar can use it)
+  const allCats = Array.from(new Set([...DEFAULT_CATS, ...tx.map(t=>t.cat)]));
+  document.getElementById('catlist').innerHTML = allCats.map(c=>`<option value="${c}"></option>`).join('');
+  document.getElementById('txFilterCat').innerHTML = `<option value="all">카테고리: 전체</option>` +
+    allCats.map(c=>`<option value="${escHtmlAttr(c)}" ${txFilterCat===c?'selected':''}>${c}</option>`).join('');
+  document.getElementById('txFilterWho').value = txFilterWho;
+  document.getElementById('txFilterKeyword').value = txFilterKeyword;
+  document.getElementById('txFilterBar').style.display = txFilterMode ? 'flex' : 'none';
+  document.getElementById('txFilterToggleBtn').classList.toggle('active', txFilterMode);
+  document.getElementById('txTable').classList.toggle('filter-mode', txFilterMode);
+
+  const txFilterKw = txFilterKeyword.trim().toLowerCase();
+  const matchesTxFilter = (t)=>{
+    const matchesWho = txFilterWho==='all' || t.who===txFilterWho;
+    const matchesCat = txFilterCat==='all' || t.cat===txFilterCat;
+    const matchesKw = !txFilterKw || `${t.cat} ${t.detail||''}`.toLowerCase().includes(txFilterKw);
+    return matchesWho && matchesCat && matchesKw;
+  };
+
+  const txFilterSignature = `${term}|${selectedMonth}|${ledgerView}|${txFilterMode}|${txFilterWho}|${txFilterCat}|${txFilterKw}`;
+  if(txFilterSignature !== lastTxFilterSignature){
+    txCheckedExclude.clear();
+    if(txFilterMode){
+      visibleTx.forEach(({t,i})=>{ if(!matchesTxFilter(t)) txCheckedExclude.add(i); });
+    }
+    lastTxFilterSignature = txFilterSignature;
+  }
+  lastVisibleTxIndices = visibleTx.map(({i})=>i);
+
+  const rowOrderTx = txFilterMode
+    ? [...visibleTx].sort((a,b)=> (txCheckedExclude.has(a.i)?1:0) - (txCheckedExclude.has(b.i)?1:0))
+    : visibleTx;
+
+  document.getElementById('txTableBody').innerHTML = rowOrderTx.map(({t,i})=>{
+    const checked = !txCheckedExclude.has(i);
+    const checkboxHtml = `<td><input type="checkbox" ${checked?'checked':''} onchange="toggleTxChecked(${i}, this.checked)"></td>`;
     if(editingTxIndex === i){
       return `<tr>
+        ${checkboxHtml}
         <td><input class="edit-input" type="text" id="edit_date_${i}" value="${escHtmlAttr(t.date)}"></td>
         <td>
           <button type="button" class="cat-picker-btn" id="edit_cat_${i}_btn" onclick="openCatPicker('edit_cat_${i}', undefined, this)">${escHtmlAttr(t.cat)}</button>
@@ -2046,23 +2172,33 @@ function render(){
         </div></td>
       </tr>`;
     }
-    return `<tr><td>${t.date}</td><td><span class="cat" style="cursor:pointer;" title="클릭하면 카테고리를 바꿀 수 있어요" onclick="openCatPicker(null, ${i}, this)">${t.cat}</span></td><td>${t.detail||''}</td>
+    return `<tr>${checkboxHtml}<td>${t.date}</td><td><span class="cat" style="cursor:pointer;" title="클릭하면 카테고리를 바꿀 수 있어요" onclick="openCatPicker(null, ${i}, this)">${t.cat}</span></td><td>${t.detail||''}</td>
      <td class="num">${fmt(t.amount)}</td><td><span class="badge ${t.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('tx', ${i}, this)">${t.who}</span></td>
      <td class="action-cell"><div class="action-cell-inner">
        <button class="edit-btn" title="수정" onclick="editTx(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteTransaction(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
      </div></td></tr>`;
-  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:20px 0;">검색 결과가 없어요</td></tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:20px 0;">검색 결과가 없어요</td></tr>';
 
+  const checkedTx = visibleTx.filter(({i})=>!txCheckedExclude.has(i));
+  const selectedTotal = checkedTx.reduce((s,{t})=>s+Number(t.amount||0),0);
   const visibleTotal = visibleTx.reduce((s,{t})=>s+Number(t.amount||0),0);
   const whoLabel = ledgerView==='all' ? '' : `${ledgerView} `;
-  document.getElementById('txTotalLabel').textContent = term ? `${whoLabel}검색결과 합계` : (whoLabel ? `${whoLabel}합계` : '총합계');
-  document.getElementById('txTotal').textContent = fmt(visibleTotal);
+  const prefixLabel = term ? `${whoLabel}검색결과 ` : (whoLabel ? whoLabel : '');
+  if(txFilterMode){
+    document.getElementById('txTotalLabel').textContent = visibleTx.length
+      ? `${prefixLabel}선택 합계 (${checkedTx.length}/${visibleTx.length}건)`
+      : `${prefixLabel}합계`;
+    document.getElementById('txTotal').textContent = fmt(selectedTotal);
+    document.getElementById('txSearchTotal').textContent = `선택 합계 ${fmt(selectedTotal)}원 (${checkedTx.length}/${visibleTx.length}건)`;
+  } else {
+    document.getElementById('txTotalLabel').textContent = term ? `${whoLabel}검색결과 합계` : (whoLabel ? `${whoLabel}합계` : '총합계');
+    document.getElementById('txTotal').textContent = fmt(visibleTotal);
+    document.getElementById('txSearchTotal').textContent = `합계 ${fmt(visibleTotal)}원 (${visibleTx.length}건)`;
+  }
   document.getElementById('txSearchCount').textContent = term ? `${visibleTx.length}건 검색됨` : '';
-
-  // category datalist (all-time categories, not just current month)
-  const allCats = Array.from(new Set([...DEFAULT_CATS, ...tx.map(t=>t.cat)]));
-  document.getElementById('catlist').innerHTML = allCats.map(c=>`<option value="${c}"></option>`).join('');
+  const selectAllBox = document.getElementById('txSelectAllCheckbox');
+  selectAllBox.checked = visibleTx.length > 0 && checkedTx.length === visibleTx.length;
 }
 
 window.addEventListener('scroll', ()=>{
