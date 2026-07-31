@@ -137,6 +137,13 @@
   }
   .cat-pill:hover{background:#eef1f6;}
   .cat-pill.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+  .scroll-top-btn{
+    position:fixed; right:20px; bottom:24px; width:46px; height:46px; border-radius:50%;
+    background:var(--accent); color:#fff; border:none; cursor:pointer; display:none;
+    align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(0,0,0,.2); z-index:900;
+  }
+  .scroll-top-btn.show{display:flex;}
+  .scroll-top-btn:hover{opacity:.9;}
   .add-data-btn{border:none; border-radius:10px; padding:10px 18px; background:var(--accent); color:#fff; font-size:13.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;}
   .add-data-btn:hover{opacity:.92;}
   .import-btn{
@@ -258,6 +265,41 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="whoPickerOverlay" onclick="if(event.target===this) closeWhoPicker()">
+    <div class="modal-box" style="max-width:300px;">
+      <div class="modal-header">
+        <h3>구분 선택</h3>
+        <button class="modal-close" onclick="closeWhoPicker()">×</button>
+      </div>
+      <div id="whoPickerList" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="incomeModalOverlay" onclick="if(event.target===this) closeIncomeModal()">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>수입 추가</h3>
+        <button class="modal-close" onclick="closeIncomeModal()">×</button>
+      </div>
+      <div class="modal-field">
+        <label>날짜</label>
+        <div class="date-input-wrap">
+          <input type="text" id="am_inc_date" placeholder="예: 08월 01일">
+          <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
+          </button>
+          <input type="date" id="am_inc_date_native" class="native-date-input" onchange="onNativeDatePick('am_inc_date','am_inc_date_native')">
+        </div>
+      </div>
+      <div class="modal-field"><label>내용</label><input type="text" id="am_inc_name" placeholder="예: 월급"></div>
+      <div class="modal-field"><label>금액</label><input type="number" id="am_inc_amount" placeholder="금액"></div>
+      <div class="modal-footer">
+        <button class="cancel-btn" onclick="closeIncomeModal()">취소</button>
+        <button class="add-btn" onclick="submitIncomeModal()">추가</button>
+      </div>
+    </div>
+  </div>
+
   <div class="tab-panel" id="tabAssets">
   <section>
     <h2 style="display:flex;justify-content:space-between;align-items:center;">
@@ -358,7 +400,7 @@
     <div class="cards" style="margin-bottom:0;">
       <div class="card">
         <div class="label">수입</div>
-        <div class="value" contenteditable="true" id="cardIncome">-</div>
+        <div class="value" id="cardIncome">-</div>
       </div>
       <div class="card">
         <div class="label">총 지출 (거래 + 고정지출)</div>
@@ -370,6 +412,18 @@
       </div>
     </div>
     <div class="ratio-bar" id="incomeRatioBar" style="margin-top:16px;"></div>
+
+    <div style="margin-top:20px; padding-top:16px; border-top:1px dashed var(--line);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h2 style="font-size:14px; margin:0;"><span class="dot"></span>수입 내역</h2>
+        <button class="add-data-btn" style="font-size:12.5px;padding:7px 12px;" onclick="openIncomeModal()">+ 수입 추가</button>
+      </div>
+      <table>
+        <thead><tr><th>날짜</th><th>내용</th><th class="num">금액</th><th></th></tr></thead>
+        <tbody id="incomeTableBody"></tbody>
+        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="incomeTotal">0</td><td></td></tr></tfoot>
+      </table>
+    </div>
   </section>
 
   <div class="two-col">
@@ -426,14 +480,47 @@
         <tr><th>날짜</th><th>대분류</th><th>중분류 / 소분류</th><th class="num">금액</th><th>구분</th><th></th></tr>
       </thead>
       <tbody id="txTableBody"></tbody>
+      <tbody>
+        <tr>
+          <td>
+            <div class="date-input-wrap">
+              <input type="text" class="edit-input" id="quickTxDate" placeholder="예: 08월 01일">
+              <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
+              </button>
+              <input type="date" id="quickTxDateNative" class="native-date-input" onchange="onNativeDatePick('quickTxDate','quickTxDateNative')">
+            </div>
+          </td>
+          <td>
+            <button type="button" class="cat-picker-btn" id="quickTxCat_btn" onclick="openCatPicker('quickTxCat')">카테고리 선택</button>
+            <input type="hidden" id="quickTxCat">
+          </td>
+          <td><input class="edit-input" type="text" id="quickTxDetail" placeholder="내용(선택)"></td>
+          <td><input class="edit-input amount" type="number" id="quickTxAmount" placeholder="금액"></td>
+          <td>
+            <select class="edit-select" id="quickTxWho">
+              <option value="다혜">다혜</option>
+              <option value="동구">동구</option>
+              <option value="공동" selected>공동</option>
+            </select>
+          </td>
+          <td class="action-cell">
+            <button class="save-btn" onclick="submitQuickTx()">추가</button>
+          </td>
+        </tr>
+      </tbody>
       <tfoot><tr class="total"><td colspan="3" id="txTotalLabel">총합계</td><td class="num" id="txTotal">0</td><td></td><td></td></tr></tfoot>
     </table>
     <datalist id="catlist"></datalist>
-    <div class="hint">상단 "데이터 추가" 버튼으로 새 거래를 넣으면 위 요약·그래프·합계가 자동으로 다시 계산돼요.</div>
+    <div class="hint">상단 "데이터 추가" 버튼으로 새 거래를 넣으면 위 요약·그래프·합계가 자동으로 다시 계산돼요. 표 맨 아래 줄에서도 바로 추가할 수 있어요.</div>
   </section>
   </div>
 
 </div>
+
+<button class="scroll-top-btn" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="맨 위로">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg>
+</button>
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -573,6 +660,15 @@ function normalizeStore(raw){
   if(!normalized.transactions) normalized.transactions = [];
   if(!normalized.fixedExpenses) normalized.fixedExpenses = [];
   if(!normalized.savings) normalized.savings = [];
+  if(!normalized.incomes){
+    normalized.incomes = [];
+    Object.keys(normalized.manual||{}).forEach(mk=>{
+      const inc = Number((normalized.manual[mk]||{}).income || 0);
+      if(inc > 0){
+        normalized.incomes.push({date: `${mk}월 01일`, name:'기존 수입', amount: inc});
+      }
+    });
+  }
   if(!normalized.assets) normalized.assets = JSON.parse(JSON.stringify(DEFAULT_DATA.assets));
   if(!normalized.assetAsOf) normalized.assetAsOf = DEFAULT_DATA.assetAsOf;
   if(!normalized.assetSnapshots) normalized.assetSnapshots = JSON.parse(JSON.stringify(DEFAULT_DATA.assetSnapshots));
@@ -821,19 +917,25 @@ function normalizeDateStr(raw){
 }
 
 let catPickerTargetId = null;
-function openCatPicker(targetInputId){
-  catPickerTargetId = targetInputId;
-  const hidden = document.getElementById(targetInputId);
+let catPickerTargetTxIndex = null;
+function openCatPicker(targetInputId, txIndex){
+  catPickerTargetId = targetInputId || null;
+  catPickerTargetTxIndex = (txIndex !== undefined && txIndex !== null) ? txIndex : null;
+  const hidden = targetInputId ? document.getElementById(targetInputId) : null;
+  const currentValue = catPickerTargetTxIndex !== null
+    ? (store.transactions[catPickerTargetTxIndex] ? store.transactions[catPickerTargetTxIndex].cat : '')
+    : (hidden ? hidden.value : '');
   document.getElementById('catPickerCustomInput').value = '';
   const allCats = Array.from(new Set([...DEFAULT_CATS, ...store.transactions.map(t=>t.cat)])).filter(Boolean);
   document.getElementById('catPickerList').innerHTML = allCats.map(c=>
-    `<button type="button" class="cat-pill ${hidden && hidden.value===c?'active':''}" onclick="selectCatPicker('${escAttr(c)}')">${c}</button>`
+    `<button type="button" class="cat-pill ${currentValue===c?'active':''}" onclick="selectCatPicker('${escAttr(c)}')">${c}</button>`
   ).join('');
   document.getElementById('catPickerOverlay').classList.add('open');
 }
 function closeCatPicker(){
   document.getElementById('catPickerOverlay').classList.remove('open');
   catPickerTargetId = null;
+  catPickerTargetTxIndex = null;
 }
 function selectCatPicker(cat){
   applyCatPickerValue(cat);
@@ -844,12 +946,43 @@ function confirmCatPickerCustom(){
   applyCatPickerValue(v);
 }
 function applyCatPickerValue(cat){
+  if(catPickerTargetTxIndex !== null){
+    if(store.transactions[catPickerTargetTxIndex]){
+      store.transactions[catPickerTargetTxIndex].cat = cat;
+      save();
+    }
+    closeCatPicker();
+    render();
+    return;
+  }
   if(!catPickerTargetId) return;
   const hidden = document.getElementById(catPickerTargetId);
   if(hidden) hidden.value = cat;
   const btn = document.getElementById(catPickerTargetId + '_btn');
   if(btn) btn.textContent = cat;
   closeCatPicker();
+}
+let whoPickerTargetTxIndex = null;
+function openWhoPicker(i){
+  whoPickerTargetTxIndex = i;
+  const cur = store.transactions[i] ? store.transactions[i].who : '';
+  const order = ['다혜','동구','공동'];
+  document.getElementById('whoPickerList').innerHTML = order.map(w=>
+    `<button type="button" class="cat-pill ${cur===w?'active':''}" onclick="selectWhoPicker('${w}')">${w}</button>`
+  ).join('');
+  document.getElementById('whoPickerOverlay').classList.add('open');
+}
+function closeWhoPicker(){
+  document.getElementById('whoPickerOverlay').classList.remove('open');
+  whoPickerTargetTxIndex = null;
+}
+function selectWhoPicker(who){
+  if(whoPickerTargetTxIndex !== null && store.transactions[whoPickerTargetTxIndex]){
+    store.transactions[whoPickerTargetTxIndex].who = who;
+    save();
+  }
+  closeWhoPicker();
+  render();
 }
 
 function openAddModal(){
@@ -947,6 +1080,66 @@ function submitAddModal(){
   }
   save();
   closeAddModal();
+  render();
+}
+
+function submitQuickTx(){
+  const date = normalizeDateStr(document.getElementById('quickTxDate').value.trim());
+  const cat = document.getElementById('quickTxCat').value.trim();
+  const detail = document.getElementById('quickTxDetail').value.trim();
+  const amount = Number(document.getElementById('quickTxAmount').value);
+  const who = document.getElementById('quickTxWho').value;
+  if(!date || !cat || !amount){ alert('날짜, 대분류, 금액은 꼭 입력해줘'); return; }
+  store.transactions.push({date, cat, detail, amount, who});
+  const addedMonth = extractMonth(date);
+  if(addedMonth) selectedMonth = addedMonth;
+  save();
+  document.getElementById('quickTxDate').value = '';
+  document.getElementById('quickTxCat').value = '';
+  document.getElementById('quickTxCat_btn').textContent = '카테고리 선택';
+  document.getElementById('quickTxDetail').value = '';
+  document.getElementById('quickTxAmount').value = '';
+  document.getElementById('quickTxWho').value = '공동';
+  render();
+}
+
+function openIncomeModal(){
+  document.getElementById('incomeModalOverlay').classList.add('open');
+  document.getElementById('am_inc_date').value = '';
+  document.getElementById('am_inc_name').value = '';
+  document.getElementById('am_inc_amount').value = '';
+}
+function closeIncomeModal(){
+  document.getElementById('incomeModalOverlay').classList.remove('open');
+}
+function submitIncomeModal(){
+  const date = normalizeDateStr(document.getElementById('am_inc_date').value.trim());
+  const name = document.getElementById('am_inc_name').value.trim();
+  const amount = Number(document.getElementById('am_inc_amount').value);
+  if(!date || !amount){ alert('날짜, 금액은 꼭 입력해줘'); return; }
+  if(!store.incomes) store.incomes = [];
+  store.incomes.push({date, name, amount});
+  const addedMonth = extractMonth(date);
+  if(addedMonth) selectedMonth = addedMonth;
+  save();
+  closeIncomeModal();
+  render();
+}
+function deleteIncome(i){
+  store.incomes.splice(i,1);
+  save(); render();
+}
+let editingIncomeIndex = null;
+function editIncome(i){ editingIncomeIndex = i; render(); }
+function cancelEditIncome(){ editingIncomeIndex = null; render(); }
+function saveEditIncome(i){
+  const date = normalizeDateStr(document.getElementById('edit_inc_date_'+i).value.trim());
+  const name = document.getElementById('edit_inc_name_'+i).value.trim();
+  const amount = Number(document.getElementById('edit_inc_amount_'+i).value);
+  if(!date || !amount){ alert('날짜, 금액은 꼭 입력해줘'); return; }
+  store.incomes[i] = {date, name, amount};
+  save();
+  editingIncomeIndex = null;
   render();
 }
 
@@ -1104,18 +1297,10 @@ function render(){
   document.getElementById('cardConsumption').textContent = fmt(monthTotal + fixedTotal*monthsForFixed) + '원';
   document.getElementById('cardOutflow').textContent = fmt(monthTotal + fixedTotal*monthsForFixed + savingTotal*monthsForFixed) + '원';
 
-  document.getElementById('cardIncome').setAttribute('contenteditable', isAllMonths ? 'false' : 'true');
-  let monthIncome = 0;
-  if(isAllMonths){
-    let sumI=0;
-    Object.values(store.manual||{}).forEach(m=>{ sumI += Number(m.income||0); });
-    document.getElementById('cardIncome').textContent = fmt(sumI) + '원';
-    monthIncome = sumI;
-  } else {
-    const mm = (store.manual && store.manual[selectedMonth]) || {consumption:0, outflow:0, income:0};
-    document.getElementById('cardIncome').textContent = fmt(mm.income) + '원';
-    monthIncome = Number(mm.income||0);
-  }
+  if(!store.incomes) store.incomes = [];
+  const monthIncomes = isAllMonths ? store.incomes : store.incomes.filter(inc=>extractMonth(inc.date)===selectedMonth);
+  const monthIncome = monthIncomes.reduce((s,inc)=>s+Number(inc.amount||0),0);
+  document.getElementById('cardIncome').textContent = fmt(monthIncome) + '원';
 
   const now = new Date();
   document.getElementById('subtitle').textContent = '지출 내역 · 고정지출 · 저축 요약 (최근 업데이트: ' + now.getFullYear() + '.' + (now.getMonth()+1) + '.' + now.getDate() + ')';
@@ -1238,7 +1423,8 @@ function render(){
   document.getElementById('fixedTotal').textContent = fmt(fixedTotal);
 
   // income vs expense (savings screen)
-  const totalExpense = monthTotal + fixedTotal;
+  // 고정지출은 달이 바뀌어도 동일하게 자동 반영 (전체 보기에서는 월 수만큼 곱해줌)
+  const totalExpense = monthTotal + fixedTotal*monthsForFixed;
   const savedAmount = monthIncome - totalExpense;
   document.getElementById('cardTotalExpense').textContent = fmt(totalExpense) + '원';
   const savedEl = document.getElementById('cardSavedAmount');
@@ -1255,6 +1441,29 @@ function render(){
       `<div class="ratio-seg" style="width:${expensePct}%;background:#fbdede;color:#b23b3b;">지출 ${fmt(totalExpense)} (${expensePctLabel}%)</div>` +
       `<div class="ratio-seg" style="width:${savedPct}%;background:#d9f2df;color:#2f8f5b;">저축 ${fmt(savedAmount)} (${savedPctLabel}%)</div>`;
   }
+
+  // income entries (month-scoped)
+  const incomeWithIndex = store.incomes.map((inc,i)=>({inc,i}));
+  const monthIncomeRows = isAllMonths ? incomeWithIndex : incomeWithIndex.filter(({inc})=>extractMonth(inc.date)===selectedMonth);
+  document.getElementById('incomeTableBody').innerHTML = monthIncomeRows.map(({inc,i})=>{
+    if(editingIncomeIndex === i){
+      return `<tr>
+        <td><input class="edit-input" type="text" id="edit_inc_date_${i}" value="${escHtmlAttr(inc.date)}"></td>
+        <td><input class="edit-input" type="text" id="edit_inc_name_${i}" value="${escHtmlAttr(inc.name||'')}"></td>
+        <td><input class="edit-input amount" type="number" id="edit_inc_amount_${i}" value="${inc.amount}"></td>
+        <td class="action-cell">
+          <button class="save-btn" onclick="saveEditIncome(${i})">저장</button>
+          <button class="cancel-btn" onclick="cancelEditIncome()">취소</button>
+        </td>
+      </tr>`;
+    }
+    return `<tr><td>${inc.date}</td><td>${inc.name||''}</td><td class="num">${fmt(inc.amount)}</td>
+     <td class="action-cell">
+       <button class="edit-btn" title="수정" onclick="editIncome(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+       <button class="del-btn" title="삭제" onclick="deleteIncome(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
+     </td></tr>`;
+  }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--sub);padding:14px 0;">등록된 수입이 없어요</td></tr>';
+  document.getElementById('incomeTotal').textContent = fmt(monthIncome);
 
   // savings
   document.getElementById('savingTableBody').innerHTML = store.savings.map((f,i)=>{
@@ -1309,8 +1518,8 @@ function render(){
         </td>
       </tr>`;
     }
-    return `<tr><td>${t.date}</td><td><span class="cat">${t.cat}</span></td><td>${t.detail||''}</td>
-     <td class="num">${fmt(t.amount)}</td><td><span class="badge ${t.who}">${t.who}</span></td>
+    return `<tr><td>${t.date}</td><td><span class="cat" style="cursor:pointer;" title="클릭하면 카테고리를 바꿀 수 있어요" onclick="openCatPicker(null, ${i})">${t.cat}</span></td><td>${t.detail||''}</td>
+     <td class="num">${fmt(t.amount)}</td><td><span class="badge ${t.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker(${i})">${t.who}</span></td>
      <td class="action-cell">
        <button class="edit-btn" title="수정" onclick="editTx(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteTransaction(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
@@ -1327,7 +1536,12 @@ function render(){
   document.getElementById('catlist').innerHTML = allCats.map(c=>`<option value="${c}"></option>`).join('');
 }
 
-bindManualCard('cardIncome','income');
+window.addEventListener('scroll', ()=>{
+  const btn = document.getElementById('scrollTopBtn');
+  if(!btn) return;
+  btn.classList.toggle('show', window.scrollY > 300);
+});
+
 document.getElementById('assetSnapshotMonth').value = new Date().getMonth()+1;
 render();
 switchTab('monthly');
