@@ -68,6 +68,9 @@
     .tx-table .edit-btn, .tx-table .del-btn{padding:3px;}
     .tx-table .edit-btn svg, .tx-table .del-btn svg{width:12px; height:12px;}
   }
+  @media(max-width:700px){
+    .asset-two-col{grid-template-columns:1fr;}
+  }
   tbody tr:nth-child(even){background:#fafbfc;}
   .chart-row-wrap{margin-bottom:12px;}
   .chart-row{display:flex; align-items:center; gap:12px; padding:3px 4px; border-radius:6px;}
@@ -396,7 +399,7 @@
       </div>
     </div>
 
-    <div class="two-col">
+    <div class="two-col asset-two-col">
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <span class="badge 동구">동구</span>
