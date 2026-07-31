@@ -45,6 +45,7 @@
   .cat{display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; background:#eef1f6; color:#444; white-space:nowrap;}
   .two-col{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
   .tx-table{table-layout:fixed;}
+  .tx-table td, .tx-table th{overflow:hidden; text-overflow:ellipsis;}
   .tx-table td:first-child, .tx-table th:first-child{white-space:nowrap; width:13%;}
   .tx-table th:nth-child(2), .tx-table td:nth-child(2){width:11%;}
   .tx-table th:nth-child(4), .tx-table td:nth-child(4){width:14%; white-space:nowrap;}
@@ -55,9 +56,17 @@
   .quick-tx-actions .cat-picker-btn{width:auto; flex-shrink:0;}
   @media(max-width:640px){
     .cards{grid-template-columns:1fr;} .two-col{grid-template-columns:1fr;}
-    .tx-table th, .tx-table td{padding:7px 4px; font-size:12px;}
-    .tx-table .cat{padding:2px 6px; font-size:11px;}
-    .tx-table .badge{padding:2px 6px; font-size:10.5px;}
+    .tx-table th, .tx-table td{padding:7px 3px; font-size:11.5px;}
+    .tx-table .cat{padding:2px 5px; font-size:10.5px; white-space:normal; word-break:keep-all; line-height:1.3;}
+    .tx-table .badge{padding:2px 5px; font-size:10px;}
+    .tx-table td:first-child, .tx-table th:first-child{width:16%; white-space:normal;}
+    .tx-table th:nth-child(2), .tx-table td:nth-child(2){width:15%;}
+    .tx-table th:nth-child(4), .tx-table td:nth-child(4){width:15%;}
+    .tx-table th:nth-child(5), .tx-table td:nth-child(5){width:12%;}
+    .tx-table th:last-child, .tx-table td:last-child{width:13%;}
+    .tx-table .action-cell-inner{gap:0;}
+    .tx-table .edit-btn, .tx-table .del-btn{padding:3px;}
+    .tx-table .edit-btn svg, .tx-table .del-btn svg{width:12px; height:12px;}
   }
   tbody tr:nth-child(even){background:#fafbfc;}
   .chart-row-wrap{margin-bottom:12px;}
