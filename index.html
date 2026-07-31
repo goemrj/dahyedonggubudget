@@ -1152,29 +1152,37 @@ function switchTab(tab){
   document.getElementById('tabBtnMonthly').classList.toggle('active', tab==='monthly');
 }
 let selectedMonth = null;
+
+// 날짜를 "월/일"로 최대한 관대하게 해석해줘 (7월 2일 / 7.2 / 7/2 / 7-2 / 2024.7.2 / 0702 / 702 등)
+function parseDateParts(dateStr){
+  const s = String(dateStr||'').trim();
+  if(!s) return null;
+  let m = s.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일?/);
+  if(m) return { month: parseInt(m[1],10), day: parseInt(m[2],10) };
+  m = s.match(/(?:\d{4}\s*[-.\/]\s*)?(\d{1,2})\s*[-.\/]\s*(\d{1,2})(?!\d)/);
+  if(m) return { month: parseInt(m[1],10), day: parseInt(m[2],10) };
+  m = s.match(/^(\d{2})(\d{2})$/);
+  if(m) return { month: parseInt(m[1],10), day: parseInt(m[2],10) };
+  m = s.match(/^(\d{1})(\d{2})$/);
+  if(m) return { month: parseInt(m[1],10), day: parseInt(m[2],10) };
+  return null;
+}
 function extractMonth(dateStr){
-  const m = String(dateStr).match(/(\d{1,2})\s*월/);
-  return m ? String(parseInt(m[1],10)) : null;
+  const parts = parseDateParts(dateStr);
+  return parts ? String(parts.month) : null;
 }
 function onMonthChange(v){ selectedMonth = v; render(); }
 
 function dateSortKey(dateStr){
-  const m = String(dateStr||'').match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
-  if(!m) return 999999;
-  return parseInt(m[1],10)*100 + parseInt(m[2],10);
+  const parts = parseDateParts(dateStr);
+  return parts ? parts.month*100 + parts.day : 999999;
 }
 
 function normalizeDateStr(raw){
   const s = String(raw||'').trim();
   if(!s) return '';
-  let m = s.match(/^(\d{1,2})\s*월\s*(\d{1,2})\s*일?$/);
-  if(m) return `${String(m[1]).padStart(2,'0')}월 ${String(m[2]).padStart(2,'0')}일`;
-  m = s.match(/^(?:\d{4}\s*[-.\/]\s*)?(\d{1,2})\s*[-.\/]\s*(\d{1,2})$/);
-  if(m) return `${String(m[1]).padStart(2,'0')}월 ${String(m[2]).padStart(2,'0')}일`;
-  m = s.match(/^(\d{2})(\d{2})$/);
-  if(m) return `${m[1]}월 ${m[2]}일`;
-  m = s.match(/^(\d{1})(\d{2})$/);
-  if(m) return `${m[1].padStart(2,'0')}월 ${m[2]}일`;
+  const parts = parseDateParts(s);
+  if(parts) return `${String(parts.month).padStart(2,'0')}월 ${String(parts.day).padStart(2,'0')}일`;
   return s;
 }
 
@@ -1950,12 +1958,14 @@ function render(){
     return m ? parseInt(m[1],10) : -1;
   }
   function fixedRowHtml(f,i){
+    const whoBadge = `<span class="badge ${f.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('fixed', ${i}, this)">${f.who}</span>`;
     if(editingFixedIndex === i){
       return `<tr>
         <td><input class="edit-input" type="text" id="edit_fx_day_${i}" value="${escHtmlAttr(f.day||'')}"></td>
         <td><input class="edit-input" type="text" id="edit_fx_name_${i}" value="${escHtmlAttr(f.name)}"></td>
         <td><input class="edit-input amount" type="number" id="edit_fx_amount_${i}" value="${f.amount}"></td>
         <td class="action-cell"><div class="action-cell-inner">
+          ${whoBadge}
           <button class="save-btn" onclick="saveEditFixed(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditFixed()">취소</button>
         </div></td>
@@ -1963,6 +1973,7 @@ function render(){
     }
     return `<tr><td>${f.day||''}</td><td>${f.name}</td><td class="num">${fmt(f.amount)}</td>
      <td class="action-cell"><div class="action-cell-inner">
+       ${whoBadge}
        <button class="edit-btn" title="수정" onclick="editFixed(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteFixed(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
      </div></td></tr>`;
@@ -2025,12 +2036,14 @@ function render(){
 
   // savings
   function savingRowHtml(f,i){
+    const whoBadge = `<span class="badge ${f.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('saving', ${i}, this)">${f.who}</span>`;
     if(editingSavingIndex === i){
       return `<tr>
         <td><input class="edit-input" type="text" id="edit_sv_day_${i}" value="${escHtmlAttr(f.day||'')}"></td>
         <td><input class="edit-input" type="text" id="edit_sv_name_${i}" value="${escHtmlAttr(f.name)}"></td>
         <td><input class="edit-input amount" type="number" id="edit_sv_amount_${i}" value="${f.amount}"></td>
         <td class="action-cell"><div class="action-cell-inner">
+          ${whoBadge}
           <button class="save-btn" onclick="saveEditSaving(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditSaving()">취소</button>
         </div></td>
@@ -2038,6 +2051,7 @@ function render(){
     }
     return `<tr><td>${f.day||''}</td><td>${f.name}</td><td class="num">${fmt(f.amount)}</td>
      <td class="action-cell"><div class="action-cell-inner">
+       ${whoBadge}
        <button class="edit-btn" title="수정" onclick="editSaving(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteSaving(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
      </div></td></tr>`;
@@ -2054,12 +2068,16 @@ function render(){
   if(ledgerView === 'all'){
     const fxDahye = allFixedSorted.filter(({f})=>f.who==='다혜');
     const fxDonggu = allFixedSorted.filter(({f})=>f.who==='동구');
+    const fxGongdong = allFixedSorted.filter(({f})=>f.who==='공동');
     const fxDahyeTotal = fxDahye.reduce((s,{f})=>s+Number(f.amount||0),0);
     const fxDongguTotal = fxDonggu.reduce((s,{f})=>s+Number(f.amount||0),0);
+    const fxGongdongTotal = fxGongdong.reduce((s,{f})=>s+Number(f.amount||0),0);
     const svDahye = allSavingsIdx.filter(({f})=>f.who==='다혜');
     const svDonggu = allSavingsIdx.filter(({f})=>f.who==='동구');
+    const svGongdong = allSavingsIdx.filter(({f})=>f.who==='공동');
     const svDahyeTotal = svDahye.reduce((s,{f})=>s+Number(f.amount||0),0);
     const svDongguTotal = svDonggu.reduce((s,{f})=>s+Number(f.amount||0),0);
+    const svGongdongTotal = svGongdong.reduce((s,{f})=>s+Number(f.amount||0),0);
     document.getElementById('fixedSavingWrap').innerHTML = `
       <section>
         <h2>📌 고정지출</h2>
@@ -2073,6 +2091,10 @@ function render(){
             ${fixedTableHtml(fxDahye, fxDahyeTotal)}
           </div>
         </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px dashed var(--line);">
+          <div style="margin-bottom:8px;"><span class="badge 공동">공동</span></div>
+          ${fixedTableHtml(fxGongdong, fxGongdongTotal)}
+        </div>
       </section>
       <section>
         <h2>🏦 저축 · 투자</h2>
@@ -2085,6 +2107,10 @@ function render(){
             <div style="margin-bottom:8px;"><span class="badge 다혜">다혜</span></div>
             ${savingTableHtml(svDahye, svDahyeTotal)}
           </div>
+        </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px dashed var(--line);">
+          <div style="margin-bottom:8px;"><span class="badge 공동">공동</span></div>
+          ${savingTableHtml(svGongdong, svGongdongTotal)}
         </div>
       </section>`;
   } else {
@@ -2186,15 +2212,15 @@ function render(){
   const whoLabel = ledgerView==='all' ? '' : `${ledgerView} `;
   const prefixLabel = term ? `${whoLabel}검색결과 ` : (whoLabel ? whoLabel : '');
   if(txFilterMode){
-    document.getElementById('txTotalLabel').textContent = visibleTx.length
-      ? `${prefixLabel}선택 합계 (${checkedTx.length}/${visibleTx.length}건)`
+    document.getElementById('txTotalLabel').innerHTML = visibleTx.length
+      ? `${prefixLabel}선택 합계 <span style="color:var(--sub); font-weight:400;">(${checkedTx.length}/${visibleTx.length}건)</span>`
       : `${prefixLabel}합계`;
     document.getElementById('txTotal').textContent = fmt(selectedTotal);
-    document.getElementById('txSearchTotal').textContent = `선택 합계 ${fmt(selectedTotal)}원 (${checkedTx.length}/${visibleTx.length}건)`;
+    document.getElementById('txSearchTotal').innerHTML = `선택 합계 <b style="font-size:15.5px;color:var(--accent);">${fmt(selectedTotal)}원</b> <span style="color:var(--sub); font-weight:400; font-size:12px;">(${checkedTx.length}/${visibleTx.length}건)</span>`;
   } else {
     document.getElementById('txTotalLabel').textContent = term ? `${whoLabel}검색결과 합계` : (whoLabel ? `${whoLabel}합계` : '총합계');
     document.getElementById('txTotal').textContent = fmt(visibleTotal);
-    document.getElementById('txSearchTotal').textContent = `합계 ${fmt(visibleTotal)}원 (${visibleTx.length}건)`;
+    document.getElementById('txSearchTotal').innerHTML = `합계 <b style="font-size:15.5px;color:var(--ink);">${fmt(visibleTotal)}원</b> <span style="color:var(--sub); font-weight:400; font-size:12px;">(${visibleTx.length}건)</span>`;
   }
   document.getElementById('txSearchCount').textContent = term ? `${visibleTx.length}건 검색됨` : '';
   const selectAllBox = document.getElementById('txSelectAllCheckbox');
