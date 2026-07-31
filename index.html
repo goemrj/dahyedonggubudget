@@ -169,6 +169,7 @@
     font-family:inherit; background:#fafbfc; cursor:pointer; text-align:left; width:100%;
   }
   .cat-picker-btn:hover{background:#eef1f6;}
+  .cat-picker-btn:disabled{opacity:.4; cursor:not-allowed; background:#fafbfc;}
   .cat-pill{
     border:2px solid transparent; padding:7px 13px; border-radius:999px;
     font-size:13px; font-weight:600; cursor:pointer;
@@ -193,8 +194,19 @@
   }
   .scroll-top-btn.show{display:flex;}
   .scroll-top-btn:hover{opacity:.9;}
+  .undo-float-btn{
+    position:fixed; right:27px; bottom:94px; width:32px; height:32px; border:none; background:none;
+    color:#9aa0a8; cursor:pointer; align-items:center; justify-content:center; padding:0; z-index:900;
+    display:none;
+  }
+  .undo-float-btn.show{display:flex;}
+  .undo-float-btn:hover{opacity:.75;}
   .add-data-btn{border:none; border-radius:10px; padding:10px 18px; background:var(--accent); color:#fff; font-size:13.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;}
   .add-data-btn:hover{opacity:.92;}
+  .section-add-btn{border:none; background:none; width:24px; height:24px; min-width:24px; flex-shrink:0; color:var(--accent); font-size:22px; font-weight:200; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; line-height:1;}
+  .section-add-btn:hover{opacity:.65;}
+  .section-title-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
+  .section-title-row h2{margin:0;}
   .import-btn{
     border:1px solid var(--accent); border-radius:10px; padding:9px 16px; background:#fff; color:var(--accent);
     font-size:13.5px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;
@@ -222,7 +234,9 @@
 
   <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
     <h1>우리 가계부</h1>
-    <button type="button" class="cat-picker-btn" id="ledgerViewBtn" style="width:auto; padding:6px 13px; font-size:12.5px; color:var(--sub);" title="가계부 보기 (전체/다혜/동구/공동)" onclick="openLedgerViewPicker(this)">전체</button>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button type="button" class="cat-picker-btn" id="ledgerViewBtn" style="width:auto; padding:6px 13px; font-size:12.5px; color:var(--sub);" title="가계부 보기 (전체/다혜/동구/공동)" onclick="openLedgerViewPicker(this)">전체</button>
+    </div>
   </div>
   <div class="subtitle" id="subtitle"></div>
   <div class="sync-status" id="syncStatus"><span class="sync-dot"></span><span>Firestore 연결 중...</span></div>
@@ -235,10 +249,10 @@
   <div class="modal-overlay" id="addModalOverlay" onclick="if(event.target===this) closeAddModal()">
     <div class="modal-box">
       <div class="modal-header">
-        <h3>데이터 추가</h3>
+        <h3 id="addModalTitle">데이터 추가</h3>
         <button class="modal-close" onclick="closeAddModal()">×</button>
       </div>
-      <select id="addType" onchange="renderAddModalFields()">
+      <select id="addType" onchange="renderAddModalFields()" style="display:none;">
         <option value="tx">거래 내역 (지출)</option>
         <option value="fixed">고정지출</option>
         <option value="saving">저축 · 투자</option>
@@ -539,7 +553,6 @@
     </div>
     <div style="display:flex; gap:8px;">
       <button class="import-btn" onclick="openImportModal()">⇪ 엑셀/CSV 가져오기</button>
-      <button class="add-data-btn" onclick="openAddModal()">+ 데이터 추가</button>
     </div>
   </div>
   <div class="cards">
@@ -576,9 +589,9 @@
     <div class="ratio-bar" id="incomeRatioBar" style="margin-top:16px;"></div>
 
     <div style="margin-top:20px; padding-top:16px; border-top:1px dashed var(--line);">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <h2 style="font-size:14px; margin:0;">💵 수입 내역</h2>
-        <button class="add-data-btn" style="font-size:12.5px;padding:7px 12px;" onclick="openIncomeModal()">+ 수입 추가</button>
+      <div class="section-title-row">
+        <h2 style="font-size:14px;">💵 수입 내역</h2>
+        <button type="button" class="section-add-btn" onclick="openIncomeModal()" title="수입 추가"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
       </div>
       <table>
         <thead><tr><th>날짜</th><th>내용</th><th class="num">금액</th><th>구분</th><th></th></tr></thead>
@@ -606,7 +619,10 @@
   <div id="fixedSavingWrap"></div>
 
   <section>
-    <h2>🧾 전체 거래 내역</h2>
+    <div class="section-title-row">
+      <h2>🧾 전체 거래 내역</h2>
+      <button type="button" class="section-add-btn" onclick="openAddModal('tx')" title="거래 내역 추가"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+    </div>
     <div class="search-wrap">
       <input type="text" id="txSearch" class="search-input" placeholder="검색 (날짜·분류·내용·다혜/동구/공동)" oninput="onTxSearch(this.value)">
       <span class="search-count" id="txSearchCount"></span>
@@ -661,11 +677,15 @@
       <tfoot><tr class="total"><td colspan="4" id="txTotalLabel">총합계</td><td class="num" id="txTotal">0</td><td></td><td></td></tr></tfoot>
     </table>
     <datalist id="catlist"></datalist>
-    <div class="hint">상단 "데이터 추가" 버튼으로 새 거래를 넣으면 위 요약·그래프·합계가 자동으로 다시 계산돼요. 표 맨 아래 줄에서도 바로 추가할 수 있어요.</div>
+    <div class="hint">우측 상단 "+" 버튼으로 새 거래를 넣으면 위 요약·그래프·합계가 자동으로 다시 계산돼요. 표 맨 아래 줄에서도 바로 추가할 수 있어요.</div>
   </section>
   </div>
 
 </div>
+
+<button type="button" class="undo-float-btn" id="undoBtn" onclick="undoLastChange()" title="되돌릴 변경사항 없음" disabled>
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+</button>
 
 <button class="scroll-top-btn" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="맨 위로">
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg>
@@ -860,15 +880,18 @@ function normalizeStore(raw){
   Object.keys(normalized.manual).forEach(mk=>{
     if(normalized.manual[mk].income === undefined) normalized.manual[mk].income = 0;
   });
+  if(typeof normalized._rev !== 'number') normalized._rev = 0;
   return normalized;
 }
 
 let store = normalizeStore(DEFAULT_DATA);
+let lastLocalRev = null; // 내가 마지막으로 Firestore에 보낸 store._rev 값 (자기 자신의 write가 되돌아오는 걸(echo) 구분하기 위함)
 
 async function writeStoreNow(){
   if(!firestoreReady || applyingRemote) return;
   setSyncStatus('Firestore에 저장 중...', 'saving');
   try{
+    lastLocalRev = store._rev;
     await budgetDoc.set({
       payload: store,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -880,7 +903,35 @@ async function writeStoreNow(){
   }
 }
 
+let undoStack = [];
+let previousStoreSnapshot = null;
+const UNDO_STACK_MAX = 20;
+
+function updateUndoButton(){
+  const btn = document.getElementById('undoBtn');
+  if(!btn) return;
+  btn.disabled = undoStack.length === 0;
+  btn.classList.toggle('show', undoStack.length > 0);
+  btn.title = undoStack.length ? `되돌리기 (최근 ${undoStack.length}개 변경사항)` : '되돌릴 변경사항 없음';
+}
+
+function undoLastChange(){
+  if(!undoStack.length) return;
+  store = undoStack.pop();
+  save();
+  render();
+  switchTab(currentTab || 'monthly');
+}
+
 function save(){
+  // 되돌리기 기록은 Firestore 연결 상태와 무관하게 항상 로컬에서 먼저 챙겨둬
+  if(previousStoreSnapshot){
+    undoStack.push(previousStoreSnapshot);
+    if(undoStack.length > UNDO_STACK_MAX) undoStack.shift();
+  }
+  store._rev = (store._rev || 0) + 1;
+  previousStoreSnapshot = JSON.parse(JSON.stringify(store));
+  updateUndoButton();
   if(!firestoreReady){
     setSyncStatus('아직 Firestore에 연결 중입니다', 'saving');
     return;
@@ -894,6 +945,7 @@ async function initFirestore(){
   try{
     const first = await budgetDoc.get();
     if(!first.exists){
+      lastLocalRev = store._rev;
       await budgetDoc.set({
         payload: store,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -903,14 +955,28 @@ async function initFirestore(){
     }
 
     firestoreReady = true;
+    previousStoreSnapshot = JSON.parse(JSON.stringify(store));
+    undoStack = [];
+    updateUndoButton();
     render();
     switchTab(currentTab || 'monthly');
     setSyncStatus('Firestore 연결됨 · 두 기기에서 실시간 공유', 'ok');
 
     budgetDoc.onSnapshot(snapshot=>{
       if(!snapshot.exists) return;
+      const incoming = snapshot.data();
+      const incomingPayload = incoming && incoming.payload !== undefined ? incoming.payload : incoming;
+      const incomingRev = incomingPayload && typeof incomingPayload._rev === 'number' ? incomingPayload._rev : null;
+      if(incomingRev !== null && incomingRev === lastLocalRev){
+        // 내가 방금 쓴 내용이 그대로 되돌아온 echo (rev 번호로 확인) — 실제 변경이 아니므로 되돌리기 기록은 건드리지 않아
+        setSyncStatus('Firestore 동기화 완료 · 실시간 공유 중', 'ok');
+        return;
+      }
       applyingRemote = true;
-      store = normalizeStore(snapshot.data());
+      store = normalizeStore(incoming);
+      previousStoreSnapshot = JSON.parse(JSON.stringify(store));
+      undoStack = [];
+      updateUndoButton();
       render();
       switchTab(currentTab || 'monthly');
       applyingRemote = false;
@@ -1332,9 +1398,10 @@ function selectWhoPicker(who){
   render();
 }
 
-function openAddModal(){
+const ADD_MODAL_TITLES = { tx:'거래 내역 추가', fixed:'고정지출 추가', saving:'저축 · 투자 추가' };
+function openAddModal(type){
   document.getElementById('addModalOverlay').classList.add('open');
-  document.getElementById('addType').value = 'tx';
+  document.getElementById('addType').value = type || 'tx';
   renderAddModalFields();
 }
 function closeAddModal(){
@@ -1342,6 +1409,7 @@ function closeAddModal(){
 }
 function renderAddModalFields(){
   const type = document.getElementById('addType').value;
+  document.getElementById('addModalTitle').textContent = ADD_MODAL_TITLES[type] || '데이터 추가';
   const el = document.getElementById('addModalFields');
   if(type === 'tx'){
     el.innerHTML = `
@@ -2086,7 +2154,10 @@ function render(){
     const svGongdongTotal = svGongdong.reduce((s,{f})=>s+Number(f.amount||0),0);
     document.getElementById('fixedSavingWrap').innerHTML = `
       <section>
-        <h2>📌 고정지출</h2>
+        <div class="section-title-row">
+          <h2>📌 고정지출</h2>
+          <button type="button" class="section-add-btn" onclick="openAddModal('fixed')" title="고정지출 추가"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+        </div>
         <div class="two-col">
           <div>
             <div style="margin-bottom:8px;"><span class="badge 동구">동구</span></div>
@@ -2103,7 +2174,10 @@ function render(){
         </div>
       </section>
       <section>
-        <h2>🏦 저축 · 투자</h2>
+        <div class="section-title-row">
+          <h2>🏦 저축 · 투자</h2>
+          <button type="button" class="section-add-btn" onclick="openAddModal('saving')" title="저축 · 투자 추가"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+        </div>
         <div class="two-col">
           <div>
             <div style="margin-bottom:8px;"><span class="badge 동구">동구</span></div>
@@ -2125,11 +2199,17 @@ function render(){
     document.getElementById('fixedSavingWrap').innerHTML = `
       <div class="two-col">
         <section>
-          <h2>📌 고정지출 (결제일 기준)</h2>
+          <div class="section-title-row">
+            <h2>📌 고정지출 (결제일 기준)</h2>
+            <button type="button" class="section-add-btn" onclick="openAddModal('fixed')" title="고정지출 추가"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+          </div>
           ${fixedTableHtml(sortedFixed, fixedTotal)}
         </section>
         <section>
-          <h2>🏦 저축 · 투자</h2>
+          <div class="section-title-row">
+            <h2>🏦 저축 · 투자</h2>
+            <button type="button" class="section-add-btn" onclick="openAddModal('saving')" title="저축 · 투자 추가"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+          </div>
           ${savingTableHtml(visibleSavings, savingTotal)}
         </section>
       </div>`;
