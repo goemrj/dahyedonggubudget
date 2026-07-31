@@ -41,9 +41,21 @@
   .badge.공동{background:var(--gongdong-bg); color:var(--gongdong-fg);}
   .badge.liquid-yes{background:#d9f2df; color:#2f8f5b;}
   .badge.liquid-no{background:#fbdede; color:#b23b3b;}
-  .cat{display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; background:#eef1f6; color:#444;}
+  .cat{display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; background:#eef1f6; color:#444; white-space:nowrap;}
   .two-col{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
-  @media(max-width:640px){ .cards{grid-template-columns:1fr;} .two-col{grid-template-columns:1fr;} }
+  .tx-table{table-layout:fixed;}
+  .tx-table td:first-child, .tx-table th:first-child{white-space:nowrap; width:15%;}
+  .tx-table th:nth-child(2), .tx-table td:nth-child(2){width:12%;}
+  .tx-table th:nth-child(4), .tx-table td:nth-child(4){width:15%; white-space:nowrap;}
+  .tx-table th:nth-child(5), .tx-table td:nth-child(5){width:11%;}
+  .tx-table th:last-child, .tx-table td:last-child{width:11%;}
+  .tx-table .badge{white-space:nowrap;}
+  @media(max-width:640px){
+    .cards{grid-template-columns:1fr;} .two-col{grid-template-columns:1fr;}
+    .tx-table th, .tx-table td{padding:7px 4px; font-size:12px;}
+    .tx-table .cat{padding:2px 6px; font-size:11px;}
+    .tx-table .badge{padding:2px 6px; font-size:10.5px;}
+  }
   tbody tr:nth-child(even){background:#fafbfc;}
   .chart-row-wrap{margin-bottom:12px;}
   .chart-row{display:flex; align-items:center; gap:12px; padding:3px 4px; border-radius:6px;}
@@ -480,7 +492,7 @@
       <input type="text" id="txSearch" class="search-input" placeholder="검색 (날짜·분류·내용·다혜/동구/공동)" oninput="onTxSearch(this.value)">
       <span class="search-count" id="txSearchCount"></span>
     </div>
-    <table>
+    <table class="tx-table">
       <thead>
         <tr><th>날짜</th><th>대분류</th><th>중분류 / 소분류</th><th class="num">금액</th><th>구분</th><th></th></tr>
       </thead>
