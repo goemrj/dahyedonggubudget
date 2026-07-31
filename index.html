@@ -8,10 +8,10 @@
   :root{
     color-scheme: light;
     --bg:#f5f6f8; --card:#ffffff; --ink:#222; --sub:#777;
-    --line:#e7e9ec; --accent:#3d6bff;
+    --line:#e7e9ec; --accent:#34558b;
     --dahye-bg:#fde3ec; --dahye-fg:#c2477e;
     --donggu-bg:#e1f0fe; --donggu-fg:#3d7cb0;
-    --gongdong-bg:#efe6fb; --gongdong-fg:#8459b8;
+    --gongdong-bg:#e7e8ea; --gongdong-fg:#5a5d63;
   }
   *{box-sizing:border-box;}
   body{
@@ -44,12 +44,14 @@
   .cat{display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; background:#eef1f6; color:#444; white-space:nowrap;}
   .two-col{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
   .tx-table{table-layout:fixed;}
-  .tx-table td:first-child, .tx-table th:first-child{white-space:nowrap; width:15%;}
-  .tx-table th:nth-child(2), .tx-table td:nth-child(2){width:12%;}
-  .tx-table th:nth-child(4), .tx-table td:nth-child(4){width:15%; white-space:nowrap;}
-  .tx-table th:nth-child(5), .tx-table td:nth-child(5){width:11%;}
-  .tx-table th:last-child, .tx-table td:last-child{width:11%;}
+  .tx-table td:first-child, .tx-table th:first-child{white-space:nowrap; width:13%;}
+  .tx-table th:nth-child(2), .tx-table td:nth-child(2){width:11%;}
+  .tx-table th:nth-child(4), .tx-table td:nth-child(4){width:14%; white-space:nowrap;}
+  .tx-table th:nth-child(5), .tx-table td:nth-child(5){width:14%;}
+  .tx-table th:last-child, .tx-table td:last-child{width:14%;}
   .tx-table .badge{white-space:nowrap;}
+  .quick-tx-actions{display:flex; align-items:center; justify-content:flex-start; gap:10px;}
+  .quick-tx-actions .cat-picker-btn{width:auto; flex-shrink:0;}
   @media(max-width:640px){
     .cards{grid-template-columns:1fr;} .two-col{grid-template-columns:1fr;}
     .tx-table th, .tx-table td{padding:7px 4px; font-size:12px;}
@@ -514,12 +516,12 @@
           </td>
           <td><input class="edit-input" type="text" id="quickTxDetail" placeholder="내용(선택)"></td>
           <td><input class="edit-input amount" type="number" id="quickTxAmount" placeholder="금액"></td>
-          <td>
-            <button type="button" class="cat-picker-btn" id="quickTxWho_btn" onclick="openWhoPicker('input', 'quickTxWho', this)">구분</button>
-            <input type="hidden" id="quickTxWho" value="공동">
-          </td>
-          <td class="action-cell">
-            <button class="save-btn" onclick="submitQuickTx()">추가</button>
+          <td colspan="2">
+            <div class="quick-tx-actions">
+              <button type="button" class="cat-picker-btn" id="quickTxWho_btn" onclick="openWhoPicker('input', 'quickTxWho', this)">구분</button>
+              <input type="hidden" id="quickTxWho" value="공동">
+              <button class="save-btn" onclick="submitQuickTx()">추가</button>
+            </div>
           </td>
         </tr>
       </tbody>
