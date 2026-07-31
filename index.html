@@ -147,6 +147,7 @@
   .popover-panel.open{display:flex;}
   .popover-panel .cat-pill-wrap{display:flex; flex-wrap:wrap; gap:8px;}
   .who-inline-group{display:flex; gap:8px; flex-wrap:nowrap;}
+  .who-filter-group{display:flex; gap:8px; flex-wrap:wrap;}
   .scroll-top-btn{
     position:fixed; right:20px; bottom:24px; width:46px; height:46px; border-radius:50%;
     background:var(--accent); color:#fff; border:none; cursor:pointer; display:none;
@@ -181,7 +182,10 @@
 <body>
 <div class="wrap">
 
-  <h1>우리 가계부</h1>
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+    <h1>우리 가계부</h1>
+    <button type="button" class="cat-picker-btn" id="ledgerViewBtn" style="width:auto; padding:6px 13px; font-size:12.5px; color:var(--sub);" title="가계부 보기 (전체/다혜/동구/공동)" onclick="openLedgerViewPicker(this)">전체</button>
+  </div>
   <div class="subtitle" id="subtitle"></div>
   <div class="sync-status" id="syncStatus"><span class="sync-dot"></span><span>Firestore 연결 중...</span></div>
 
@@ -290,6 +294,10 @@
     <div id="whoPickerList" class="cat-pill-wrap"></div>
   </div>
 
+  <div class="popover-panel" id="ledgerViewPickerPanel">
+    <div id="ledgerViewPickerList" class="cat-pill-wrap"></div>
+  </div>
+
   <div class="modal-overlay" id="incomeModalOverlay" onclick="if(event.target===this) closeIncomeModal()">
     <div class="modal-box">
       <div class="modal-header">
@@ -308,6 +316,14 @@
       </div>
       <div class="modal-field"><label>내용</label><input type="text" id="am_inc_name" placeholder="예: 월급"></div>
       <div class="modal-field"><label>금액</label><input type="number" id="am_inc_amount" placeholder="금액"></div>
+      <div class="modal-field"><label>구분</label>
+        <div class="who-inline-group" id="am_inc_who_group">
+          <button type="button" class="cat-pill active" data-value="다혜" style="background:var(--dahye-bg);color:var(--dahye-fg);" onclick="selectInlineWho('am_inc_who_group','am_inc_who','다혜')">다혜</button>
+          <button type="button" class="cat-pill" data-value="동구" style="background:var(--donggu-bg);color:var(--donggu-fg);" onclick="selectInlineWho('am_inc_who_group','am_inc_who','동구')">동구</button>
+          <button type="button" class="cat-pill" data-value="공동" style="background:var(--gongdong-bg);color:var(--gongdong-fg);" onclick="selectInlineWho('am_inc_who_group','am_inc_who','공동')">공동</button>
+        </div>
+        <input type="hidden" id="am_inc_who" value="다혜">
+      </div>
       <div class="modal-footer">
         <button class="cancel-btn" onclick="closeIncomeModal()">취소</button>
         <button class="add-btn" onclick="submitIncomeModal()">추가</button>
@@ -434,9 +450,9 @@
         <button class="add-data-btn" style="font-size:12.5px;padding:7px 12px;" onclick="openIncomeModal()">+ 수입 추가</button>
       </div>
       <table>
-        <thead><tr><th>날짜</th><th>내용</th><th class="num">금액</th><th></th></tr></thead>
+        <thead><tr><th>날짜</th><th>내용</th><th class="num">금액</th><th>구분</th><th></th></tr></thead>
         <tbody id="incomeTableBody"></tbody>
-        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="incomeTotal">0</td><td></td></tr></tfoot>
+        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="incomeTotal">0</td><td></td><td></td></tr></tfoot>
       </table>
     </div>
   </section>
@@ -468,18 +484,18 @@
     <section>
       <h2><span class="dot"></span>고정지출 (결제일 기준)</h2>
       <table>
-        <thead><tr><th>결제일</th><th>내용</th><th class="num">금액</th><th></th></tr></thead>
+        <thead><tr><th>결제일</th><th>내용</th><th class="num">금액</th><th>구분</th><th></th></tr></thead>
         <tbody id="fixedTableBody"></tbody>
-        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="fixedTotal">0</td><td></td></tr></tfoot>
+        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="fixedTotal">0</td><td></td><td></td></tr></tfoot>
       </table>
     </section>
 
     <section>
       <h2><span class="dot"></span>저축 · 투자</h2>
       <table>
-        <thead><tr><th>일자</th><th>내용</th><th class="num">금액</th><th></th></tr></thead>
+        <thead><tr><th>일자</th><th>내용</th><th class="num">금액</th><th>구분</th><th></th></tr></thead>
         <tbody id="savingTableBody"></tbody>
-        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="savingTotal">0</td><td></td></tr></tfoot>
+        <tfoot><tr class="total"><td colspan="2">계</td><td class="num" id="savingTotal">0</td><td></td><td></td></tr></tfoot>
       </table>
     </section>
   </div>
@@ -513,7 +529,7 @@
           <td><input class="edit-input" type="text" id="quickTxDetail" placeholder="내용(선택)"></td>
           <td><input class="edit-input amount" type="number" id="quickTxAmount" placeholder="금액"></td>
           <td>
-            <button type="button" class="cat-picker-btn" id="quickTxWho_btn" onclick="openWhoPicker(null, this, 'quickTxWho')">구분</button>
+            <button type="button" class="cat-picker-btn" id="quickTxWho_btn" onclick="openWhoPicker('input', 'quickTxWho', this)">구분</button>
             <input type="hidden" id="quickTxWho" value="공동">
           </td>
           <td class="action-cell">
@@ -628,20 +644,20 @@ const DEFAULT_DATA = {
     {date:'07월 30일', cat:'장보기', detail:'맥주', amount:27350, who:'공동'}
   ],
   fixedExpenses: [
-    {day:'', name:'교통', amount:81850},
-    {day:'10일', name:'통신', amount:63065},
-    {day:'말일', name:'애플', amount:3300},
-    {day:'말일', name:'가스비', amount:23380},
-    {day:'24일', name:'관리비', amount:137360},
-    {day:'6일', name:'보험', amount:174887},
-    {day:'18일', name:'배민클럽', amount:1990},
-    {day:'12일', name:'디즈니플러스', amount:9900},
-    {day:'20일', name:'네이버플러스', amount:4900}
+    {day:'', name:'교통', amount:81850, who:'다혜'},
+    {day:'10일', name:'통신', amount:63065, who:'다혜'},
+    {day:'말일', name:'애플', amount:3300, who:'다혜'},
+    {day:'말일', name:'가스비', amount:23380, who:'다혜'},
+    {day:'24일', name:'관리비', amount:137360, who:'다혜'},
+    {day:'6일', name:'보험', amount:174887, who:'다혜'},
+    {day:'18일', name:'배민클럽', amount:1990, who:'다혜'},
+    {day:'12일', name:'디즈니플러스', amount:9900, who:'다혜'},
+    {day:'20일', name:'네이버플러스', amount:4900, who:'다혜'}
   ],
   savings: [
-    {day:'30일', name:'주택청약', amount:50000},
-    {day:'말일', name:'청년도약계좌', amount:700000},
-    {day:'말일', name:'장기펀드', amount:500000}
+    {day:'30일', name:'주택청약', amount:50000, who:'다혜'},
+    {day:'말일', name:'청년도약계좌', amount:700000, who:'다혜'},
+    {day:'말일', name:'장기펀드', amount:500000, who:'다혜'}
   ],
   assetAsOf: '2026-07-30',
   assets: [
@@ -677,10 +693,13 @@ function normalizeStore(raw){
     Object.keys(normalized.manual||{}).forEach(mk=>{
       const inc = Number((normalized.manual[mk]||{}).income || 0);
       if(inc > 0){
-        normalized.incomes.push({date: `${mk}월 01일`, name:'기존 수입', amount: inc});
+        normalized.incomes.push({date: `${mk}월 01일`, name:'기존 수입', amount: inc, who:'다혜'});
       }
     });
   }
+  normalized.fixedExpenses.forEach(f=>{ if(!f.who) f.who = '다혜'; });
+  normalized.savings.forEach(f=>{ if(!f.who) f.who = '다혜'; });
+  normalized.incomes.forEach(inc=>{ if(!inc.who) inc.who = '다혜'; });
   if(!normalized.assets) normalized.assets = JSON.parse(JSON.stringify(DEFAULT_DATA.assets));
   if(!normalized.assetAsOf) normalized.assetAsOf = DEFAULT_DATA.assetAsOf;
   if(!normalized.assetSnapshots) normalized.assetSnapshots = JSON.parse(JSON.stringify(DEFAULT_DATA.assetSnapshots));
@@ -779,7 +798,8 @@ function saveEditFixed(i){
   const name = document.getElementById('edit_fx_name_'+i).value.trim();
   const amount = Number(document.getElementById('edit_fx_amount_'+i).value);
   if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
-  store.fixedExpenses[i] = {day, name, amount};
+  const who = store.fixedExpenses[i] ? store.fixedExpenses[i].who : '다혜';
+  store.fixedExpenses[i] = {day, name, amount, who};
   save();
   editingFixedIndex = null;
   render();
@@ -797,7 +817,8 @@ function saveEditSaving(i){
   const name = document.getElementById('edit_sv_name_'+i).value.trim();
   const amount = Number(document.getElementById('edit_sv_amount_'+i).value);
   if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
-  store.savings[i] = {day, name, amount};
+  const who = store.savings[i] ? store.savings[i].who : '다혜';
+  store.savings[i] = {day, name, amount, who};
   save();
   editingSavingIndex = null;
   render();
@@ -969,8 +990,7 @@ function closeAllPopovers(){
   document.querySelectorAll('.popover-panel').forEach(p=>p.classList.remove('open'));
   catPickerTargetId = null;
   catPickerTargetTxIndex = null;
-  whoPickerTargetTxIndex = null;
-  whoPickerTargetId = null;
+  whoPickerCtx = null;
 }
 
 let catPickerTargetId = null;
@@ -1022,17 +1042,22 @@ function applyCatPickerValue(cat){
   if(btn) btn.textContent = cat;
   closeCatPicker();
 }
-let whoPickerTargetTxIndex = null;
-let whoPickerTargetId = null;
-function openWhoPicker(i, anchorEl, targetInputId){
-  whoPickerTargetTxIndex = (i !== undefined && i !== null) ? i : null;
-  whoPickerTargetId = targetInputId || null;
+let whoPickerCtx = null; // {kind:'tx'|'fixed'|'saving'|'income'|'input', index, id}
+const WHO_STORE_MAP = { tx:'transactions', fixed:'fixedExpenses', saving:'savings', income:'incomes' };
+function openWhoPicker(kind, indexOrId, anchorEl){
+  if(kind === 'input'){
+    whoPickerCtx = { kind:'input', id: indexOrId };
+  } else {
+    whoPickerCtx = { kind, index: indexOrId };
+  }
   let cur = '';
-  if(whoPickerTargetTxIndex !== null){
-    cur = store.transactions[whoPickerTargetTxIndex] ? store.transactions[whoPickerTargetTxIndex].who : '';
-  } else if(whoPickerTargetId){
-    const hidden = document.getElementById(whoPickerTargetId);
+  if(whoPickerCtx.kind === 'input'){
+    const hidden = document.getElementById(whoPickerCtx.id);
     cur = hidden ? hidden.value : '';
+  } else {
+    const arrName = WHO_STORE_MAP[whoPickerCtx.kind];
+    const arr = arrName ? store[arrName] : null;
+    cur = (arr && arr[whoPickerCtx.index]) ? arr[whoPickerCtx.index].who : '';
   }
   const order = ['다혜','동구','공동'];
   document.getElementById('whoPickerList').innerHTML = order.map(w=>{
@@ -1045,26 +1070,26 @@ function openWhoPicker(i, anchorEl, targetInputId){
 function closeWhoPicker(){
   document.getElementById('whoPickerPanel').classList.remove('open');
   document.getElementById('popoverBackdrop').classList.remove('open');
-  whoPickerTargetTxIndex = null;
-  whoPickerTargetId = null;
+  whoPickerCtx = null;
 }
 function selectWhoPicker(who){
-  if(whoPickerTargetTxIndex !== null){
-    if(store.transactions[whoPickerTargetTxIndex]){
-      store.transactions[whoPickerTargetTxIndex].who = who;
-      save();
-    }
+  if(!whoPickerCtx) return;
+  if(whoPickerCtx.kind === 'input'){
+    const hidden = document.getElementById(whoPickerCtx.id);
+    if(hidden) hidden.value = who;
+    const btn = document.getElementById(whoPickerCtx.id + '_btn');
+    if(btn) btn.textContent = who;
     closeWhoPicker();
-    render();
     return;
   }
-  if(whoPickerTargetId){
-    const hidden = document.getElementById(whoPickerTargetId);
-    if(hidden) hidden.value = who;
-    const btn = document.getElementById(whoPickerTargetId + '_btn');
-    if(btn) btn.textContent = who;
+  const arrName = WHO_STORE_MAP[whoPickerCtx.kind];
+  const arr = arrName ? store[arrName] : null;
+  if(arr && arr[whoPickerCtx.index]){
+    arr[whoPickerCtx.index].who = who;
+    save();
   }
   closeWhoPicker();
+  render();
 }
 
 function openAddModal(){
@@ -1112,14 +1137,30 @@ function renderAddModalFields(){
       <div class="modal-grid">
         <div class="modal-field"><label>결제일</label><input type="text" id="am_fx_day" placeholder="예: 10일"></div>
         <div class="modal-field"><label>내용</label><input type="text" id="am_fx_name" placeholder="예: 통신비"></div>
-        <div class="modal-field full"><label>금액</label><input type="number" id="am_fx_amount" placeholder="금액"></div>
+        <div class="modal-field"><label>금액</label><input type="number" id="am_fx_amount" placeholder="금액"></div>
+        <div class="modal-field full"><label>구분</label>
+          <div class="who-inline-group" id="am_fx_who_group">
+            <button type="button" class="cat-pill active" data-value="다혜" style="background:var(--dahye-bg);color:var(--dahye-fg);" onclick="selectInlineWho('am_fx_who_group','am_fx_who','다혜')">다혜</button>
+            <button type="button" class="cat-pill" data-value="동구" style="background:var(--donggu-bg);color:var(--donggu-fg);" onclick="selectInlineWho('am_fx_who_group','am_fx_who','동구')">동구</button>
+            <button type="button" class="cat-pill" data-value="공동" style="background:var(--gongdong-bg);color:var(--gongdong-fg);" onclick="selectInlineWho('am_fx_who_group','am_fx_who','공동')">공동</button>
+          </div>
+          <input type="hidden" id="am_fx_who" value="다혜">
+        </div>
       </div>`;
   } else if(type === 'saving'){
     el.innerHTML = `
       <div class="modal-grid">
         <div class="modal-field"><label>일자</label><input type="text" id="am_sv_day" placeholder="예: 말일"></div>
         <div class="modal-field"><label>내용</label><input type="text" id="am_sv_name" placeholder="예: 적금"></div>
-        <div class="modal-field full"><label>금액</label><input type="number" id="am_sv_amount" placeholder="금액"></div>
+        <div class="modal-field"><label>금액</label><input type="number" id="am_sv_amount" placeholder="금액"></div>
+        <div class="modal-field full"><label>구분</label>
+          <div class="who-inline-group" id="am_sv_who_group">
+            <button type="button" class="cat-pill active" data-value="다혜" style="background:var(--dahye-bg);color:var(--dahye-fg);" onclick="selectInlineWho('am_sv_who_group','am_sv_who','다혜')">다혜</button>
+            <button type="button" class="cat-pill" data-value="동구" style="background:var(--donggu-bg);color:var(--donggu-fg);" onclick="selectInlineWho('am_sv_who_group','am_sv_who','동구')">동구</button>
+            <button type="button" class="cat-pill" data-value="공동" style="background:var(--gongdong-bg);color:var(--gongdong-fg);" onclick="selectInlineWho('am_sv_who_group','am_sv_who','공동')">공동</button>
+          </div>
+          <input type="hidden" id="am_sv_who" value="다혜">
+        </div>
       </div>`;
   }
 }
@@ -1152,14 +1193,16 @@ function submitAddModal(){
     const day = document.getElementById('am_fx_day').value.trim();
     const name = document.getElementById('am_fx_name').value.trim();
     const amount = Number(document.getElementById('am_fx_amount').value);
+    const who = document.getElementById('am_fx_who').value;
     if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
-    store.fixedExpenses.push({day, name, amount});
+    store.fixedExpenses.push({day, name, amount, who});
   } else if(type === 'saving'){
     const day = document.getElementById('am_sv_day').value.trim();
     const name = document.getElementById('am_sv_name').value.trim();
     const amount = Number(document.getElementById('am_sv_amount').value);
+    const who = document.getElementById('am_sv_who').value;
     if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
-    store.savings.push({day, name, amount});
+    store.savings.push({day, name, amount, who});
   }
   save();
   closeAddModal();
@@ -1192,6 +1235,8 @@ function openIncomeModal(){
   document.getElementById('am_inc_date').value = '';
   document.getElementById('am_inc_name').value = '';
   document.getElementById('am_inc_amount').value = '';
+  document.getElementById('am_inc_who').value = '다혜';
+  selectInlineWho('am_inc_who_group','am_inc_who','다혜');
 }
 function closeIncomeModal(){
   document.getElementById('incomeModalOverlay').classList.remove('open');
@@ -1200,9 +1245,10 @@ function submitIncomeModal(){
   const date = normalizeDateStr(document.getElementById('am_inc_date').value.trim());
   const name = document.getElementById('am_inc_name').value.trim();
   const amount = Number(document.getElementById('am_inc_amount').value);
+  const who = document.getElementById('am_inc_who').value;
   if(!date || !amount){ alert('날짜, 금액은 꼭 입력해줘'); return; }
   if(!store.incomes) store.incomes = [];
-  store.incomes.push({date, name, amount});
+  store.incomes.push({date, name, amount, who});
   const addedMonth = extractMonth(date);
   if(addedMonth) selectedMonth = addedMonth;
   save();
@@ -1221,7 +1267,8 @@ function saveEditIncome(i){
   const name = document.getElementById('edit_inc_name_'+i).value.trim();
   const amount = Number(document.getElementById('edit_inc_amount_'+i).value);
   if(!date || !amount){ alert('날짜, 금액은 꼭 입력해줘'); return; }
-  store.incomes[i] = {date, name, amount};
+  const who = store.incomes[i] ? store.incomes[i].who : '다혜';
+  store.incomes[i] = {date, name, amount, who};
   save();
   editingIncomeIndex = null;
   render();
@@ -1350,6 +1397,22 @@ let openWho = null;
 let editingTxIndex = null;
 let txSearchTerm = '';
 function onTxSearch(v){ txSearchTerm = v; render(); }
+let ledgerView = 'all';
+function openLedgerViewPicker(anchorEl){
+  const order = [['all','전체'], ['다혜','다혜'], ['동구','동구'], ['공동','공동']];
+  document.getElementById('ledgerViewPickerList').innerHTML = order.map(([v,label])=>{
+    const active = ledgerView === v;
+    const style = v==='all' ? 'background:#eef1f6;color:#444;' : `background:${WHO_STYLE[v].bg};color:${WHO_STYLE[v].fg};`;
+    return `<button type="button" class="cat-pill ${active?'active':''}" style="${style}" onclick="selectLedgerView('${v}')">${label}</button>`;
+  }).join('');
+  showPopover('ledgerViewPickerPanel', anchorEl);
+}
+function selectLedgerView(v){
+  ledgerView = v;
+  document.getElementById('ledgerViewBtn').textContent = v==='all' ? '전체' : v;
+  closeAllPopovers();
+  render();
+}
 function escHtmlAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
 function editTx(i){ editingTxIndex = i; render(); }
 function cancelEditTx(){ editingTxIndex = null; render(); }
@@ -1401,10 +1464,13 @@ function render(){
   document.getElementById('monthFilter').innerHTML = allMonths.map(m=>`<option value="${m}" ${selectedMonth===m?'selected':''}>${m}월</option>`).join('') + `<option value="all" ${selectedMonth==='all'?'selected':''}>전체</option>`;
 
   const isAllMonths = selectedMonth === 'all';
-  const monthTx = isAllMonths ? tx : tx.filter(t=>extractMonth(t.date)===selectedMonth);
+  const monthTxAll = isAllMonths ? tx : tx.filter(t=>extractMonth(t.date)===selectedMonth);
+  const monthTx = ledgerView==='all' ? monthTxAll : monthTxAll.filter(t=>t.who===ledgerView);
   const monthTotal = monthTx.reduce((s,t)=>s+Number(t.amount||0),0);
-  const fixedTotal = store.fixedExpenses.reduce((s,f)=>s+Number(f.amount||0),0);
-  const savingTotal = store.savings.reduce((s,f)=>s+Number(f.amount||0),0);
+  const scopedFixedExpenses = ledgerView==='all' ? store.fixedExpenses : store.fixedExpenses.filter(f=>f.who===ledgerView);
+  const scopedSavingsArr = ledgerView==='all' ? store.savings : store.savings.filter(f=>f.who===ledgerView);
+  const fixedTotal = scopedFixedExpenses.reduce((s,f)=>s+Number(f.amount||0),0);
+  const savingTotal = scopedSavingsArr.reduce((s,f)=>s+Number(f.amount||0),0);
   const monthsForFixed = isAllMonths ? Math.max(allMonths.length,1) : 1;
 
   document.getElementById('cardPaymentLabel').textContent = isAllMonths ? '결제 (전체 거래 합계)' : `결제 (${selectedMonth}월 거래 합계)`;
@@ -1415,7 +1481,8 @@ function render(){
   document.getElementById('cardOutflow').textContent = fmt(monthTotal + fixedTotal*monthsForFixed + savingTotal*monthsForFixed) + '원';
 
   if(!store.incomes) store.incomes = [];
-  const monthIncomes = isAllMonths ? store.incomes : store.incomes.filter(inc=>extractMonth(inc.date)===selectedMonth);
+  const monthIncomesAll = isAllMonths ? store.incomes : store.incomes.filter(inc=>extractMonth(inc.date)===selectedMonth);
+  const monthIncomes = ledgerView==='all' ? monthIncomesAll : monthIncomesAll.filter(inc=>inc.who===ledgerView);
   const monthIncome = monthIncomes.reduce((s,inc)=>s+Number(inc.amount||0),0);
   document.getElementById('cardIncome').textContent = fmt(monthIncome) + '원';
 
@@ -1518,6 +1585,7 @@ function render(){
     return m ? parseInt(m[1],10) : -1;
   }
   const sortedFixed = store.fixedExpenses.map((f,i)=>({f,i}))
+    .filter(({f})=> ledgerView==='all' || f.who===ledgerView)
     .sort((a,b)=>parseFixedDay(a.f.day)-parseFixedDay(b.f.day));
   document.getElementById('fixedTableBody').innerHTML = sortedFixed.map(({f,i})=>{
     if(editingFixedIndex === i){
@@ -1525,6 +1593,7 @@ function render(){
         <td><input class="edit-input" type="text" id="edit_fx_day_${i}" value="${escHtmlAttr(f.day||'')}"></td>
         <td><input class="edit-input" type="text" id="edit_fx_name_${i}" value="${escHtmlAttr(f.name)}"></td>
         <td><input class="edit-input amount" type="number" id="edit_fx_amount_${i}" value="${f.amount}"></td>
+        <td><span class="badge ${f.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('fixed', ${i}, this)">${f.who}</span></td>
         <td class="action-cell">
           <button class="save-btn" onclick="saveEditFixed(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditFixed()">취소</button>
@@ -1532,6 +1601,7 @@ function render(){
       </tr>`;
     }
     return `<tr><td>${f.day||''}</td><td>${f.name}</td><td class="num">${fmt(f.amount)}</td>
+     <td><span class="badge ${f.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('fixed', ${i}, this)">${f.who}</span></td>
      <td class="action-cell">
        <button class="edit-btn" title="수정" onclick="editFixed(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteFixed(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
@@ -1561,13 +1631,15 @@ function render(){
 
   // income entries (month-scoped)
   const incomeWithIndex = store.incomes.map((inc,i)=>({inc,i}));
-  const monthIncomeRows = isAllMonths ? incomeWithIndex : incomeWithIndex.filter(({inc})=>extractMonth(inc.date)===selectedMonth);
+  const monthIncomeRowsAll = isAllMonths ? incomeWithIndex : incomeWithIndex.filter(({inc})=>extractMonth(inc.date)===selectedMonth);
+  const monthIncomeRows = ledgerView==='all' ? monthIncomeRowsAll : monthIncomeRowsAll.filter(({inc})=>inc.who===ledgerView);
   document.getElementById('incomeTableBody').innerHTML = monthIncomeRows.map(({inc,i})=>{
     if(editingIncomeIndex === i){
       return `<tr>
         <td><input class="edit-input" type="text" id="edit_inc_date_${i}" value="${escHtmlAttr(inc.date)}"></td>
         <td><input class="edit-input" type="text" id="edit_inc_name_${i}" value="${escHtmlAttr(inc.name||'')}"></td>
         <td><input class="edit-input amount" type="number" id="edit_inc_amount_${i}" value="${inc.amount}"></td>
+        <td><span class="badge ${inc.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('income', ${i}, this)">${inc.who}</span></td>
         <td class="action-cell">
           <button class="save-btn" onclick="saveEditIncome(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditIncome()">취소</button>
@@ -1575,20 +1647,24 @@ function render(){
       </tr>`;
     }
     return `<tr><td>${inc.date}</td><td>${inc.name||''}</td><td class="num">${fmt(inc.amount)}</td>
+     <td><span class="badge ${inc.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('income', ${i}, this)">${inc.who}</span></td>
      <td class="action-cell">
        <button class="edit-btn" title="수정" onclick="editIncome(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteIncome(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
      </td></tr>`;
-  }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--sub);padding:14px 0;">등록된 수입이 없어요</td></tr>';
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--sub);padding:14px 0;">등록된 수입이 없어요</td></tr>';
   document.getElementById('incomeTotal').textContent = fmt(monthIncome);
 
   // savings
-  document.getElementById('savingTableBody').innerHTML = store.savings.map((f,i)=>{
+  const visibleSavings = store.savings.map((f,i)=>({f,i}))
+    .filter(({f})=> ledgerView==='all' || f.who===ledgerView);
+  document.getElementById('savingTableBody').innerHTML = visibleSavings.map(({f,i})=>{
     if(editingSavingIndex === i){
       return `<tr>
         <td><input class="edit-input" type="text" id="edit_sv_day_${i}" value="${escHtmlAttr(f.day||'')}"></td>
         <td><input class="edit-input" type="text" id="edit_sv_name_${i}" value="${escHtmlAttr(f.name)}"></td>
         <td><input class="edit-input amount" type="number" id="edit_sv_amount_${i}" value="${f.amount}"></td>
+        <td><span class="badge ${f.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('saving', ${i}, this)">${f.who}</span></td>
         <td class="action-cell">
           <button class="save-btn" onclick="saveEditSaving(${i})">저장</button>
           <button class="cancel-btn" onclick="cancelEditSaving()">취소</button>
@@ -1596,6 +1672,7 @@ function render(){
       </tr>`;
     }
     return `<tr><td>${f.day||''}</td><td>${f.name}</td><td class="num">${fmt(f.amount)}</td>
+     <td><span class="badge ${f.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('saving', ${i}, this)">${f.who}</span></td>
      <td class="action-cell">
        <button class="edit-btn" title="수정" onclick="editSaving(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteSaving(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
@@ -1607,6 +1684,7 @@ function render(){
   const term = txSearchTerm.trim().toLowerCase();
   const txWithIndex = tx.map((t,i)=>({t,i}));
   const monthFilteredTx = (isAllMonths ? txWithIndex.slice() : txWithIndex.filter(({t})=>extractMonth(t.date)===selectedMonth))
+    .filter(({t})=> ledgerView==='all' || t.who===ledgerView)
     .sort((a,b)=>dateSortKey(a.t.date)-dateSortKey(b.t.date));
   const visibleTx = term
     ? monthFilteredTx.filter(({t})=> `${t.date} ${t.cat} ${t.detail||''} ${t.who} ${t.amount}`.toLowerCase().includes(term))
@@ -1636,7 +1714,7 @@ function render(){
       </tr>`;
     }
     return `<tr><td>${t.date}</td><td><span class="cat" style="cursor:pointer;" title="클릭하면 카테고리를 바꿀 수 있어요" onclick="openCatPicker(null, ${i}, this)">${t.cat}</span></td><td>${t.detail||''}</td>
-     <td class="num">${fmt(t.amount)}</td><td><span class="badge ${t.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker(${i}, this)">${t.who}</span></td>
+     <td class="num">${fmt(t.amount)}</td><td><span class="badge ${t.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('tx', ${i}, this)">${t.who}</span></td>
      <td class="action-cell">
        <button class="edit-btn" title="수정" onclick="editTx(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteTransaction(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
@@ -1644,7 +1722,8 @@ function render(){
   }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:20px 0;">검색 결과가 없어요</td></tr>';
 
   const visibleTotal = visibleTx.reduce((s,{t})=>s+Number(t.amount||0),0);
-  document.getElementById('txTotalLabel').textContent = term ? '검색결과 합계' : '총합계';
+  const whoLabel = ledgerView==='all' ? '' : `${ledgerView} `;
+  document.getElementById('txTotalLabel').textContent = term ? `${whoLabel}검색결과 합계` : (whoLabel ? `${whoLabel}합계` : '총합계');
   document.getElementById('txTotal').textContent = fmt(visibleTotal);
   document.getElementById('txSearchCount').textContent = term ? `${visibleTx.length}건 검색됨` : '';
 
