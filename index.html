@@ -158,11 +158,12 @@
     position:absolute; right:4px; top:50%; transform:translateY(-50%);
     border:none; background:none; color:var(--sub); padding:5px;
     display:flex; align-items:center; border-radius:6px;
-    pointer-events:none;
+    cursor:pointer; z-index:1;
   }
+  .cal-btn:hover{background:#eef1f6;}
   .native-date-input{
     position:absolute; right:0; top:0; width:34px; height:100%;
-    opacity:0; margin:0; padding:0; border:0; cursor:pointer;
+    opacity:0; margin:0; padding:0; border:0; pointer-events:none;
   }
   .cat-picker-btn{
     border:1px solid var(--line); border-radius:6px; padding:7px 9px; font-size:13px;
@@ -369,10 +370,10 @@
         <label>날짜</label>
         <div class="date-input-wrap">
           <input type="text" id="am_inc_date" placeholder="예: 08월 01일">
-          <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1">
+          <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1" onclick="openDatePicker('am_inc_date')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
           </button>
-          <input type="date" id="am_inc_date_native" class="native-date-input" onchange="onNativeDatePick('am_inc_date','am_inc_date_native')">
+          <input type="date" id="am_inc_date_native" class="native-date-input" onchange="onNativeDatePick('am_inc_date','am_inc_date_native')" oninput="onNativeDatePick('am_inc_date','am_inc_date_native')">
         </div>
       </div>
       <div class="modal-field"><label>내용</label><input type="text" id="am_inc_name" placeholder="예: 월급"></div>
@@ -653,17 +654,17 @@
           <td>
             <div class="date-input-wrap">
               <input type="text" class="edit-input" id="quickTxDate" placeholder="예: 08월 01일">
-              <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1">
+              <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1" onclick="openDatePicker('quickTxDate')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
               </button>
-              <input type="date" id="quickTxDateNative" class="native-date-input" onchange="onNativeDatePick('quickTxDate','quickTxDateNative')">
+              <input type="date" id="quickTxDate_native" class="native-date-input" onchange="onNativeDatePick('quickTxDate','quickTxDate_native')" oninput="onNativeDatePick('quickTxDate','quickTxDate_native')">
             </div>
           </td>
           <td>
             <button type="button" class="cat-picker-btn" id="quickTxCat_btn" onclick="openCatPicker('quickTxCat', undefined, this)">선택</button>
             <input type="hidden" id="quickTxCat">
           </td>
-          <td><input class="edit-input" type="text" id="quickTxDetail" placeholder="내용(선택)"></td>
+          <td><input class="edit-input" type="text" id="quickTxMid" placeholder="중분류(선택)"></td>
           <td><input class="edit-input amount" type="number" id="quickTxAmount" placeholder="금액"></td>
           <td colspan="2">
             <div class="quick-tx-actions">
@@ -843,6 +844,12 @@ function normalizeStore(raw){
     : JSON.parse(JSON.stringify(DEFAULT_DATA));
 
   if(!normalized.transactions) normalized.transactions = [];
+  normalized.transactions.forEach(t=>{
+    if(t.mid === undefined){
+      t.mid = t.detail || '';
+      t.detail = '';
+    }
+  });
   if(!normalized.fixedExpenses) normalized.fixedExpenses = [];
   if(!normalized.savings) normalized.savings = [];
   if(!normalized.incomes){
@@ -1055,19 +1062,47 @@ function saveEditAsset(i){
   editingAssetIndex = null;
   render();
 }
-let memoPickerTargetIndex = null;
-function openMemoPicker(i, anchorEl){
-  memoPickerTargetIndex = i;
-  document.getElementById('memoPickerInput').value = (store.assets[i] && store.assets[i].memo) || '';
+let memoPickerCtx = null;
+function openMemoPicker(kind, indexOrId, anchorEl){
+  if(kind === 'input'){
+    memoPickerCtx = { kind:'input', id: indexOrId };
+  } else {
+    memoPickerCtx = { kind, index: indexOrId };
+  }
+  let cur = '';
+  if(memoPickerCtx.kind === 'input'){
+    const hidden = document.getElementById(memoPickerCtx.id);
+    cur = hidden ? hidden.value : '';
+  } else if(memoPickerCtx.kind === 'asset'){
+    cur = (store.assets[memoPickerCtx.index] && store.assets[memoPickerCtx.index].memo) || '';
+  } else if(memoPickerCtx.kind === 'tx'){
+    cur = (store.transactions[memoPickerCtx.index] && store.transactions[memoPickerCtx.index].detail) || '';
+  }
+  document.getElementById('memoPickerInput').value = cur;
   showPopover('memoPickerPanel', anchorEl);
 }
 function saveMemoPicker(){
-  if(memoPickerTargetIndex === null) return;
+  if(!memoPickerCtx) return;
   const memo = document.getElementById('memoPickerInput').value.trim();
-  if(store.assets[memoPickerTargetIndex]){
-    store.assets[memoPickerTargetIndex].memo = memo;
-    store.assetAsOf = new Date().toISOString().slice(0,10);
-    save();
+  if(memoPickerCtx.kind === 'input'){
+    const hidden = document.getElementById(memoPickerCtx.id);
+    if(hidden) hidden.value = memo;
+    const btn = document.getElementById(memoPickerCtx.id + '_btn');
+    if(btn) btn.textContent = memo || '메모';
+    closeAllPopovers();
+    return;
+  }
+  if(memoPickerCtx.kind === 'asset'){
+    if(store.assets[memoPickerCtx.index]){
+      store.assets[memoPickerCtx.index].memo = memo;
+      store.assetAsOf = new Date().toISOString().slice(0,10);
+      save();
+    }
+  } else if(memoPickerCtx.kind === 'tx'){
+    if(store.transactions[memoPickerCtx.index]){
+      store.transactions[memoPickerCtx.index].detail = memo;
+      save();
+    }
   }
   closeAllPopovers();
   render();
@@ -1168,7 +1203,7 @@ function renderAssetColumn(owner, tbodyId, sourceAssets, readonly){
     }
     const actionsHtml = readonly ? '<td></td>' : `<td class="action-cell"><div class="action-cell-inner">
        <button class="edit-btn" title="수정" onclick="editAsset(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
-       <button class="edit-btn" title="메모" onclick="openMemoPicker(${i}, this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E3A008" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3H15L19 7V21H5V3Z"></path><path d="M15 3V7H19"></path></svg></button>
+       <button class="edit-btn" title="메모" onclick="openMemoPicker('asset', ${i}, this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E3A008" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3H15L19 7V21H5V3Z"></path><path d="M15 3V7H19"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteAsset(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
      </div></td>`;
     const memoHtml = a.memo ? `<div style="font-size:11px;color:var(--sub);margin-top:2px;">${escHtmlAttr(a.memo)}</div>` : '';
@@ -1296,7 +1331,7 @@ function closeAllPopovers(){
   catPickerTargetId = null;
   catPickerTargetTxIndex = null;
   whoPickerCtx = null;
-  memoPickerTargetIndex = null;
+  memoPickerCtx = null;
 }
 
 let catPickerTargetId = null;
@@ -1418,10 +1453,10 @@ function renderAddModalFields(){
           <label>날짜</label>
           <div class="date-input-wrap">
             <input type="text" id="am_tx_date" placeholder="예: 08월 01일">
-            <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1">
+            <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1" onclick="openDatePicker('am_tx_date')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
             </button>
-            <input type="date" id="am_tx_date_native" class="native-date-input" onchange="onNativeDatePick('am_tx_date','am_tx_date_native')">
+            <input type="date" id="am_tx_date_native" class="native-date-input" onchange="onNativeDatePick('am_tx_date','am_tx_date_native')" oninput="onNativeDatePick('am_tx_date','am_tx_date_native')">
           </div>
         </div>
         <div class="modal-field">
@@ -1429,7 +1464,8 @@ function renderAddModalFields(){
           <button type="button" class="cat-picker-btn" id="am_tx_cat_btn" onclick="openCatPicker('am_tx_cat', undefined, this)">카테고리 선택</button>
           <input type="hidden" id="am_tx_cat">
         </div>
-        <div class="modal-field"><label>중분류 / 소분류</label><input type="text" id="am_tx_detail" placeholder="예: 점심"></div>
+        <div class="modal-field"><label>중분류</label><input type="text" id="am_tx_mid" placeholder="예: 점심"></div>
+        <div class="modal-field"><label>소분류 (메모)</label><input type="text" id="am_tx_detail" placeholder="예: 꾸아"></div>
         <div class="modal-field"><label>금액</label><input type="number" id="am_tx_amount" placeholder="금액"></div>
         <div class="modal-field full"><label>구분</label>
           <div class="who-inline-group" id="am_tx_who_group">
@@ -1490,11 +1526,12 @@ function submitAddModal(){
   if(type === 'tx'){
     const date = normalizeDateStr(document.getElementById('am_tx_date').value.trim());
     const cat = document.getElementById('am_tx_cat').value.trim();
+    const mid = document.getElementById('am_tx_mid').value.trim();
     const detail = document.getElementById('am_tx_detail').value.trim();
     const amount = Number(document.getElementById('am_tx_amount').value);
     const who = document.getElementById('am_tx_who').value;
     if(!date || !cat || !amount){ alert('날짜, 대분류, 금액은 꼭 입력해줘'); return; }
-    store.transactions.push({date, cat, detail, amount, who});
+    store.transactions.push({date, cat, mid, detail, amount, who});
     const addedMonth = extractMonth(date);
     if(addedMonth) selectedMonth = addedMonth;
   } else if(type === 'fixed'){
@@ -1520,18 +1557,18 @@ function submitAddModal(){
 function submitQuickTx(){
   const date = normalizeDateStr(document.getElementById('quickTxDate').value.trim());
   const cat = document.getElementById('quickTxCat').value.trim();
-  const detail = document.getElementById('quickTxDetail').value.trim();
+  const mid = document.getElementById('quickTxMid').value.trim();
   const amount = Number(document.getElementById('quickTxAmount').value);
   const who = document.getElementById('quickTxWho').value;
   if(!date || !cat || !amount){ alert('날짜, 대분류, 금액은 꼭 입력해줘'); return; }
-  store.transactions.push({date, cat, detail, amount, who});
+  store.transactions.push({date, cat, mid, detail:'', amount, who});
   const addedMonth = extractMonth(date);
   if(addedMonth) selectedMonth = addedMonth;
   save();
   document.getElementById('quickTxDate').value = '';
   document.getElementById('quickTxCat').value = '';
   document.getElementById('quickTxCat_btn').textContent = '선택';
-  document.getElementById('quickTxDetail').value = '';
+  document.getElementById('quickTxMid').value = '';
   document.getElementById('quickTxAmount').value = '';
   document.getElementById('quickTxWho').value = '공동';
   document.getElementById('quickTxWho_btn').textContent = '구분';
@@ -1639,8 +1676,8 @@ function rowToTx(colsIn){
   const amount = Number(String(amountRaw||'').replace(/[,원\s]/g,''));
   const date = normalizeDateStr((cols.shift()||'').trim());
   const cat = (cols.shift()||'').trim();
-  const detail = cols.filter(c=>c).join(' · ');
-  return {date, cat, detail, amount, who};
+  const mid = cols.filter(c=>c).join(' · ');
+  return {date, cat, mid, detail:'', amount, who};
 }
 
 let importParsedRows = [];
@@ -1675,7 +1712,7 @@ function renderImportPreview(){
   document.getElementById('importPreviewBody').innerHTML = importParsedRows.map(r=>{
     const rowStyle = r.valid ? '' : ' style="color:#b23b3b;background:#fdeaea;"';
     return `<tr${rowStyle}>
-      <td>${r.date || '-'}</td><td>${r.cat || '-'}</td><td>${r.detail || ''}</td>
+      <td>${r.date || '-'}</td><td>${r.cat || '-'}</td><td>${r.mid || ''}</td>
       <td class="num">${(r.amount && !isNaN(r.amount)) ? fmt(r.amount) : '-'}</td><td>${r.who || ''}</td>
       <td>${r.valid ? '정상' : '오류'}</td>
     </tr>`;
@@ -1690,7 +1727,7 @@ function confirmImport(){
   if(validRows.length === 0){ alert('추가할 수 있는 데이터가 없어요.'); return; }
   let lastMonth = null;
   validRows.forEach(r=>{
-    store.transactions.push({date:r.date, cat:r.cat, detail:r.detail, amount:r.amount, who:r.who});
+    store.transactions.push({date:r.date, cat:r.cat, mid:r.mid, detail:r.detail||'', amount:r.amount, who:r.who});
     const mo = extractMonth(r.date);
     if(mo) lastMonth = mo;
   });
@@ -1756,11 +1793,12 @@ function cancelEditTx(){ editingTxIndex = null; render(); }
 function saveEditTx(i){
   const date = normalizeDateStr(document.getElementById('edit_date_'+i).value.trim());
   const cat = document.getElementById('edit_cat_'+i).value.trim();
+  const mid = document.getElementById('edit_mid_'+i).value.trim();
   const detail = document.getElementById('edit_detail_'+i).value.trim();
   const amount = Number(document.getElementById('edit_amount_'+i).value);
   const who = document.getElementById('edit_who_'+i).value;
   if(!date || !cat || !amount){ alert('날짜, 대분류, 금액은 꼭 입력해줘'); return; }
-  store.transactions[i] = {date, cat, detail, amount, who};
+  store.transactions[i] = {date, cat, mid, detail, amount, who};
   save();
   editingTxIndex = null;
   render();
@@ -1777,7 +1815,7 @@ function escAttr(s){ return String(s).replace(/'/g, "\\'"); }
 function detailBoxHtml(items, showCat){
   if(!items.length) return '<div class="cat-detail-empty">내역 없음</div>';
   return items.map(t=>
-    `<div class="cat-detail-row"><span>${t.date}${showCat ? ' · '+t.cat : ''}${t.detail ? ' · '+t.detail : ''}</span><span><span class="badge ${t.who}">${t.who}</span> ${fmt(t.amount)}원</span></div>`
+    `<div class="cat-detail-row"><span>${t.date}${showCat ? ' · '+t.cat : ''}${t.mid ? ' · '+t.mid : ''}${t.detail ? ' · '+t.detail : ''}</span><span><span class="badge ${t.who}">${t.who}</span> ${fmt(t.amount)}원</span></div>`
   ).join('');
 }
 
@@ -1796,8 +1834,10 @@ function bindManualCard(id, key){
 function render(){
   const tx = store.transactions;
 
-  const allMonths = Array.from(new Set(tx.map(t=>extractMonth(t.date)).filter(Boolean))).sort((a,b)=>Number(a)-Number(b));
-  if(selectedMonth === null && allMonths.length) selectedMonth = allMonths[allMonths.length-1];
+  const nowMonth = String(new Date().getMonth()+1);
+  const dataMonths = Array.from(new Set(tx.map(t=>extractMonth(t.date)).filter(Boolean))).sort((a,b)=>Number(a)-Number(b));
+  const allMonths = Array.from(new Set([...dataMonths, nowMonth])).sort((a,b)=>Number(a)-Number(b));
+  if(selectedMonth === null) selectedMonth = nowMonth;
   document.getElementById('monthFilter').innerHTML = allMonths.map(m=>`<option value="${m}" ${selectedMonth===m?'selected':''}>${m}월</option>`).join('') + `<option value="all" ${selectedMonth==='all'?'selected':''}>전체</option>`;
 
   const isAllMonths = selectedMonth === 'all';
@@ -1808,7 +1848,7 @@ function render(){
   const scopedSavingsArr = ledgerView==='all' ? store.savings : store.savings.filter(f=>f.who===ledgerView);
   const fixedTotal = scopedFixedExpenses.reduce((s,f)=>s+Number(f.amount||0),0);
   const savingTotal = scopedSavingsArr.reduce((s,f)=>s+Number(f.amount||0),0);
-  const monthsForFixed = isAllMonths ? Math.max(allMonths.length,1) : 1;
+  const monthsForFixed = isAllMonths ? Math.max(dataMonths.length,1) : 1;
 
   document.getElementById('cardPaymentLabel').textContent = isAllMonths ? '결제 (전체 거래 합계)' : `결제 (${selectedMonth}월 거래 합계)`;
   document.getElementById('cardPayment').textContent = fmt(monthTotal) + '원';
@@ -2222,7 +2262,7 @@ function render(){
     .filter(({t})=> ledgerView==='all' || t.who===ledgerView)
     .sort((a,b)=>dateSortKey(a.t.date)-dateSortKey(b.t.date));
   const visibleTx = term
-    ? monthFilteredTx.filter(({t})=> `${t.date} ${t.cat} ${t.detail||''} ${t.who} ${t.amount}`.toLowerCase().includes(term))
+    ? monthFilteredTx.filter(({t})=> `${t.date} ${t.cat} ${t.mid||''} ${t.detail||''} ${t.who} ${t.amount}`.toLowerCase().includes(term))
     : monthFilteredTx;
 
   // category datalist (all-time categories, computed early so the filter bar can use it)
@@ -2240,7 +2280,7 @@ function render(){
   const matchesTxFilter = (t)=>{
     const matchesWho = txFilterWho==='all' || t.who===txFilterWho;
     const matchesCat = txFilterCat==='all' || t.cat===txFilterCat;
-    const matchesKw = !txFilterKw || `${t.cat} ${t.detail||''}`.toLowerCase().includes(txFilterKw);
+    const matchesKw = !txFilterKw || `${t.cat} ${t.mid||''} ${t.detail||''}`.toLowerCase().includes(txFilterKw);
     return matchesWho && matchesCat && matchesKw;
   };
 
@@ -2269,7 +2309,13 @@ function render(){
           <button type="button" class="cat-picker-btn" id="edit_cat_${i}_btn" onclick="openCatPicker('edit_cat_${i}', undefined, this)">${escHtmlAttr(t.cat)}</button>
           <input type="hidden" id="edit_cat_${i}" value="${escHtmlAttr(t.cat)}">
         </td>
-        <td><input class="edit-input" type="text" id="edit_detail_${i}" value="${escHtmlAttr(t.detail||'')}"></td>
+        <td>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <input class="edit-input" type="text" id="edit_mid_${i}" value="${escHtmlAttr(t.mid||'')}" placeholder="중분류" style="flex:1;">
+            <button type="button" class="edit-btn" title="메모(소분류)" onclick="openMemoPicker('input', 'edit_detail_${i}', this)" style="flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E3A008" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3H15L19 7V21H5V3Z"></path><path d="M15 3V7H19"></path></svg></button>
+          </div>
+          <input type="hidden" id="edit_detail_${i}" value="${escHtmlAttr(t.detail||'')}">
+        </td>
         <td><input class="edit-input amount" type="number" id="edit_amount_${i}" value="${t.amount}"></td>
         <td>
           <select class="edit-select" id="edit_who_${i}">
@@ -2284,10 +2330,12 @@ function render(){
         </div></td>
       </tr>`;
     }
-    return `<tr>${checkboxHtml}<td>${t.date}</td><td><span class="cat" style="cursor:pointer;" title="클릭하면 카테고리를 바꿀 수 있어요" onclick="openCatPicker(null, ${i}, this)">${t.cat}</span></td><td>${t.detail||''}</td>
+    const txMemoHtml = t.detail ? `<div style="font-size:11px;color:var(--sub);margin-top:2px;">${escHtmlAttr(t.detail)}</div>` : '';
+    return `<tr>${checkboxHtml}<td>${t.date}</td><td><span class="cat" style="cursor:pointer;" title="클릭하면 카테고리를 바꿀 수 있어요" onclick="openCatPicker(null, ${i}, this)">${t.cat}</span></td><td>${t.mid||''}${txMemoHtml}</td>
      <td class="num">${fmt(t.amount)}</td><td><span class="badge ${t.who}" style="cursor:pointer;" title="클릭하면 구분을 바꿀 수 있어요" onclick="openWhoPicker('tx', ${i}, this)">${t.who}</span></td>
      <td class="action-cell"><div class="action-cell-inner">
        <button class="edit-btn" title="수정" onclick="editTx(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+       <button class="edit-btn" title="메모" onclick="openMemoPicker('tx', ${i}, this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E3A008" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3H15L19 7V21H5V3Z"></path><path d="M15 3V7H19"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteTransaction(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
      </div></td></tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:20px 0;">검색 결과가 없어요</td></tr>';
