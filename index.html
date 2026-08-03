@@ -307,15 +307,16 @@
 
       <div id="importInputView">
         <div class="modal-field">
-          <label>CSV 파일 첨부</label>
-          <input type="file" id="importFile" accept=".csv,.txt" onchange="onImportFileSelected(event)">
+          <label>카드사 파일(.xls/.xlsx) 또는 CSV 파일 첨부</label>
+          <input type="file" id="importFile" accept=".csv,.txt,.xls,.xlsx" onchange="onImportFileSelected(event)">
+          <div class="hint" id="importFileHint" style="margin-top:6px;"></div>
         </div>
         <div class="modal-field">
           <label>또는 엑셀에서 셀 범위를 복사해서 붙여넣기</label>
           <textarea id="importPasteArea" rows="8" placeholder="날짜	대분류	중분류	소분류	금액	구분
 08월 01일	식사	점심		12000	다혜"></textarea>
         </div>
-        <div class="hint">한 줄에 거래 하나씩, 값은 쉼표(,) 또는 탭으로 구분돼요. 순서: 날짜, 대분류, (중분류), (소분류), 금액, (구분: 다혜/동구/공동 — 생략하면 공동으로 들어가요). 엑셀 파일(.xlsx)은 이 화면에서 직접 열 수 없으니, CSV로 저장하거나 셀을 복사해서 붙여넣어줘.</div>
+        <div class="hint">한 줄에 거래 하나씩, 값은 쉼표(,) 또는 탭으로 구분돼요. 순서: 날짜, 대분류, (중분류), (소분류), 금액, (구분: 다혜/동구/공동 — 생략하면 공동으로 들어가요). 현대카드·신한카드에서 받은 파일은 위에서 바로 첨부하면 자동으로 인식해요. 그 외 카드사 파일은 CSV로 저장하거나 셀을 복사해서 붙여넣어줘.</div>
         <div class="modal-footer">
           <button class="cancel-btn" onclick="closeImportModal()">취소</button>
           <button class="add-btn" onclick="previewImport()">미리보기</button>
@@ -324,9 +325,12 @@
 
       <div id="importPreviewView" style="display:none;">
         <div class="hint" id="importPreviewSummary" style="margin-bottom:10px;"></div>
-        <div style="max-height:360px; overflow-y:auto; overflow-x:auto; border:1px solid var(--line); border-radius:8px;">
-          <table style="min-width:620px;">
-            <thead><tr><th>날짜</th><th>대분류</th><th>내용</th><th class="num">금액</th><th>구분</th><th>상태</th></tr></thead>
+        <div style="max-height:360px; overflow-y:auto; border:1px solid var(--line); border-radius:8px;">
+          <table style="table-layout:fixed; width:100%;">
+            <colgroup>
+              <col style="width:16%;"><col style="width:14%;"><col style="width:32%;"><col style="width:13%;"><col style="width:11%;"><col style="width:14%;">
+            </colgroup>
+            <thead><tr style="font-size:12px;"><th style="padding:8px 4px;">날짜</th><th style="padding:8px 4px;">대분류</th><th style="padding:8px 4px;">내용</th><th class="num" style="padding:8px 4px;">금액</th><th style="padding:8px 4px;">구분</th><th style="padding:8px 4px;">상태</th></tr></thead>
             <tbody id="importPreviewBody"></tbody>
           </table>
         </div>
@@ -692,6 +696,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyBQF--V0Bjfa7xLjxCXBwcmxYnMWzps10Q",
@@ -721,9 +726,38 @@ function setSyncStatus(message, state=''){
 
 const CAT_COLORS = {
   '식사':'#ffd6b0', '생활용품':'#c3ecd0', '장보기':'#bfe8e3', '쇼핑':'#e3d3f5',
-  '여행':'#c6e7f0', '교통':'#c9d6f7', '병원':'#f6cccc', '기타':'#e2e5ea'
+  '여행':'#c6e7f0', '교통':'#c9d6f7', '병원':'#f6cccc', '기타':'#e2e5ea', '편의점':'#ffe9a8',
+  '고정지출':'#d7d2f0'
 };
-const DEFAULT_CATS = ['장보기','쇼핑','교통','생활용품','식사','병원','여행','기타'];
+const DEFAULT_CATS = ['장보기','쇼핑','교통','생활용품','식사','병원','여행','편의점','고정지출','기타'];
+
+// 카드 파일을 가져올 때 가맹점명으로 대분류를 자동 추측하기 위한 키워드 목록.
+// 위에서부터 먼저 매칭되는 카테고리를 쓰고, 하나도 안 걸리면 빈 값을 반환해 사용자가 직접 고르게 한다.
+// "고정지출"로 매칭되면(구독료 · 멤버십 · 공과금 등) 가져오기 확정 시 거래 내역이 아니라 고정지출 목록에 들어간다.
+const CATEGORY_KEYWORDS = [
+  { cat:'고정지출', keywords:['구독','멤버십','통신','보험','관리비','가스','전기','에너지','apple','넷플릭스','netflix','디즈니플러스','disney+','유튜브 프리미엄','youtube premium','멜론','지니뮤직','스포티파이','spotify','티머니'] },
+  { cat:'편의점', keywords:['CU','씨유','GS25','지에스25','세븐일레븐','코리아세븐','7-ELEVEN','이마트24','emart24','미니스톱'] },
+  { cat:'생활용품', keywords:['다이소','아성다이소'] },
+  { cat:'병원', keywords:['병원','의원','약국','한의원','치과','피부과','정형외과','재활의학과'] },
+  { cat:'식사', keywords:['식당','카페','커피','베이커리','파리바게뜨','뚜레쥬르','분식','치킨','피자','에프앤비','F&B','떡볶이','배달의민족','우아한형제들','배민','요기요','와인'] },
+  { cat:'교통', keywords:['교통카드','주유','주차','철도','지하철','버스','코레일','고속도로','카카오t','택시','suica'] },
+  { cat:'여행', keywords:['호텔','펜션','항공','여행사','리조트'] },
+  { cat:'장보기', keywords:['마트','슈퍼','수퍼','하나로마트','농협'] },
+  { cat:'쇼핑', keywords:['쿠팡','마켓컬리','백화점','아울렛','올리브영','서적','교보문고','영풍문고'] },
+  { cat:'기타', keywords:['CGV','메가박스','롯데시네마'] }
+];
+function guessCategory(merchant){
+  const m = String(merchant||'').toLowerCase();
+  for(const {cat, keywords} of CATEGORY_KEYWORDS){
+    if(keywords.some(k => m.includes(k.toLowerCase()))) return cat;
+  }
+  return '';
+}
+// "MM월 DD일" 형식에서 결제일만 뽑아 고정지출의 day 필드 형식("DD일")으로 바꿔준다.
+function dateToFixedDay(dateStr){
+  const m = String(dateStr||'').match(/(\d{1,2})월\s*(\d{1,2})일/);
+  return m ? `${m[2]}일` : '';
+}
 
 const WHO_STYLE = {
   '다혜': {bg:'var(--dahye-bg)', fg:'var(--dahye-fg)'},
@@ -1644,6 +1678,7 @@ function openImportModal(){
   document.getElementById('importModalOverlay').classList.add('open');
   document.getElementById('importFile').value = '';
   document.getElementById('importPasteArea').value = '';
+  document.getElementById('importFileHint').textContent = '';
   importParsedRows = [];
   document.getElementById('importInputView').style.display = 'block';
   document.getElementById('importPreviewView').style.display = 'none';
@@ -1654,14 +1689,128 @@ function closeImportModal(){
   document.getElementById('importInputView').style.display = 'block';
   document.getElementById('importPreviewView').style.display = 'none';
 }
+
+// 신한카드처럼 진짜 .xlsx 파일로 주는 형식. 알고 있는 헤더(거래일/가맹점명/금액)가 없으면 null을 반환한다.
+function parseXlsxBankFile(arrayBuffer){
+  const wb = XLSX.read(arrayBuffer, {type:'array'});
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:true, defval:''});
+  if(!rows.length) return null;
+  const header = rows[0].map(h=>String(h||'').trim());
+  const idxDate = header.indexOf('거래일');
+  const idxMerchant = header.indexOf('가맹점명');
+  const idxAmount = header.indexOf('금액');
+  const idxCancel = header.indexOf('취소상태');
+  if(idxDate < 0 || idxMerchant < 0 || idxAmount < 0) return null;
+  const out = [];
+  for(let i=1;i<rows.length;i++){
+    const row = rows[i];
+    const dateRaw = String(row[idxDate]||'').trim();
+    if(!parseDateParts(dateRaw)) continue; // 합계/요약 줄 제외
+    const cancelVal = idxCancel>=0 ? String(row[idxCancel]||'').trim() : '';
+    if(cancelVal) continue; // 취소된 거래 제외
+    const amount = Number(row[idxAmount]);
+    if(!amount || isNaN(amount) || amount<=0) continue;
+    out.push({date: normalizeDateStr(dateRaw), merchant: String(row[idxMerchant]||'').trim(), amount});
+  }
+  return out;
+}
+
+// 현대카드처럼 .xls 확장자지만 실제로는 HTML 표로 주는 형식. 알고 있는 헤더(가맹점명/승인금액)가 없으면 null을 반환한다.
+function parseHtmlBankFile(text){
+  const doc = new DOMParser().parseFromString(text, 'text/html');
+  const tables = doc.querySelectorAll('table');
+  for(const table of tables){
+    const trs = Array.from(table.querySelectorAll('tr'));
+    let headerTexts = null;
+    for(const tr of trs){
+      const ths = tr.querySelectorAll('th');
+      if(!ths.length) continue;
+      const texts = Array.from(ths).map(th=>th.textContent.trim());
+      if(texts.includes('가맹점명') && texts.includes('승인금액')){ headerTexts = texts; break; }
+    }
+    if(!headerTexts) continue;
+    const idxDate = headerTexts.indexOf('승인일');
+    const idxMerchant = headerTexts.indexOf('가맹점명');
+    const idxAmount = headerTexts.indexOf('승인금액');
+    const idxCancelDate = headerTexts.indexOf('취소일');
+    const idxApprovalType = headerTexts.indexOf('승인구분');
+    const out = [];
+    trs.forEach(tr=>{
+      const tds = tr.querySelectorAll('td');
+      if(!tds.length) return;
+      const cellText = i => (i>=0 && tds[i]) ? tds[i].textContent.replace(/\s+/g,' ').trim() : '';
+      const dateRaw = cellText(idxDate);
+      if(!parseDateParts(dateRaw)) return; // 합계/요약 줄 제외
+      if(idxCancelDate>=0){
+        const cancelDate = cellText(idxCancelDate);
+        if(cancelDate && cancelDate !== '-') return; // 취소된 거래 제외
+      }
+      if(idxApprovalType>=0 && cellText(idxApprovalType).includes('취소')) return;
+      const amount = Number(cellText(idxAmount).replace(/[,원\s]/g,''));
+      if(!amount || isNaN(amount) || amount<=0) return;
+      out.push({date: normalizeDateStr(dateRaw), merchant: cellText(idxMerchant), amount});
+    });
+    if(out.length) return out;
+  }
+  return null;
+}
+
+// 같은 날짜·금액의 거래가 이미 store에 있으면 중복으로 의심한다 (미리보기에서 표시만 하고, 추가 여부는 사용자가 정함).
+function isDuplicateTx(date, amount){
+  return store.transactions.some(t => t.date === date && Number(t.amount) === Number(amount));
+}
+function buildParsedRowsFromBankRows(bankRows, defaultWho){
+  importParsedRows = bankRows.map(r=>{
+    const cat = guessCategory(r.merchant);
+    const valid = !!(r.date && cat && r.amount && !isNaN(r.amount) && r.amount > 0);
+    return {
+      date: r.date, cat, mid: r.merchant, detail:'', amount: r.amount, who: defaultWho || '공동',
+      valid, duplicate: cat !== '고정지출' && isDuplicateTx(r.date, r.amount)
+    };
+  });
+}
+function showImportPreview(){
+  renderImportPreview();
+  document.getElementById('importInputView').style.display = 'none';
+  document.getElementById('importPreviewView').style.display = 'block';
+}
 function onImportFileSelected(e){
   const file = e.target.files[0];
   if(!file) return;
+  const hintEl = document.getElementById('importFileHint');
+  hintEl.textContent = '';
   const reader = new FileReader();
   reader.onload = function(ev){
-    document.getElementById('importPasteArea').value = ev.target.result;
+    const buf = ev.target.result;
+    const head = new Uint8Array(buf.slice(0,4));
+    const isZip = head[0]===0x50 && head[1]===0x4B; // 'PK' 시그니처 = 진짜 .xlsx(zip)
+    if(isZip){
+      let bankRows = null;
+      try{ bankRows = parseXlsxBankFile(buf); }catch(err){ console.error('xlsx 파싱 실패:', err); }
+      if(bankRows && bankRows.length){
+        buildParsedRowsFromBankRows(bankRows, '공동');
+        showImportPreview();
+      } else {
+        hintEl.textContent = '알고 있는 카드사 형식이 아니에요. CSV로 저장하거나 셀을 복사해서 붙여넣어줘.';
+      }
+      return;
+    }
+    const text = new TextDecoder('utf-8').decode(buf);
+    if(/<table/i.test(text)){
+      let bankRows = null;
+      try{ bankRows = parseHtmlBankFile(text); }catch(err){ console.error('xls(html) 파싱 실패:', err); }
+      if(bankRows && bankRows.length){
+        buildParsedRowsFromBankRows(bankRows, '공동');
+        showImportPreview();
+      } else {
+        hintEl.textContent = '알고 있는 카드사 형식이 아니에요. CSV로 저장하거나 셀을 복사해서 붙여넣어줘.';
+      }
+      return;
+    }
+    document.getElementById('importPasteArea').value = text;
   };
-  reader.readAsText(file, 'utf-8');
+  reader.readAsArrayBuffer(file);
 }
 function rowToTx(colsIn){
   const cols = colsIn.map(c => c===undefined ? '' : String(c).trim());
@@ -1695,11 +1844,10 @@ function previewImport(){
     const cols = line.split(delim);
     const tx = rowToTx(cols);
     const valid = !!(tx.date && tx.cat && tx.amount && !isNaN(tx.amount) && tx.amount > 0);
-    return Object.assign({}, tx, {valid});
+    const duplicate = valid && tx.cat !== '고정지출' && isDuplicateTx(tx.date, tx.amount);
+    return Object.assign({}, tx, {valid, duplicate});
   });
-  renderImportPreview();
-  document.getElementById('importInputView').style.display = 'none';
-  document.getElementById('importPreviewView').style.display = 'block';
+  showImportPreview();
 }
 function renderImportPreview(){
   const validCount = importParsedRows.filter(r=>r.valid).length;
@@ -1710,28 +1858,29 @@ function renderImportPreview(){
   document.getElementById('importPreviewBody').innerHTML = importParsedRows.map((r,idx)=>{
     const rowStyle = r.valid ? '' : ' style="background:#fdeaea;"';
     return `<tr${rowStyle}>
-      <td>
+      <td style="padding:6px 4px;">
         <div class="date-input-wrap">
-          <input type="text" class="edit-input" id="import_date_${idx}" value="${escHtmlAttr(r.date||'')}" style="width:92px;" onchange="updateImportRow(${idx},'date',this.value)">
-          <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1" onclick="openDatePicker('import_date_${idx}')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
+          <input type="text" class="edit-input" id="import_date_${idx}" value="${escHtmlAttr(r.date||'')}" style="width:100%; padding-right:26px; font-size:12px;" onchange="updateImportRow(${idx},'date',this.value)">
+          <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1" style="right:2px; padding:3px;" onclick="openDatePicker('import_date_${idx}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
           </button>
           <input type="date" id="import_date_${idx}_native" class="native-date-input" onchange="onNativeDatePick('import_date_${idx}','import_date_${idx}_native'); updateImportRow(${idx},'date',document.getElementById('import_date_${idx}').value)" oninput="onNativeDatePick('import_date_${idx}','import_date_${idx}_native')">
         </div>
       </td>
-      <td>
-        <button type="button" class="cat-picker-btn" id="import_cat_${idx}_btn" onclick="openCatPicker('import_cat_${idx}', undefined, this)">${r.cat ? escHtmlAttr(r.cat) : '선택'}</button>
+      <td style="padding:6px 4px; overflow:hidden;">
+        <button type="button" class="cat-picker-btn" id="import_cat_${idx}_btn" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11.5px; padding:6px 5px;" onclick="openCatPicker('import_cat_${idx}', undefined, this)">${r.cat ? escHtmlAttr(r.cat) : '선택'}</button>
         <input type="hidden" id="import_cat_${idx}" value="${escHtmlAttr(r.cat||'')}" onchange="updateImportRow(${idx},'cat',this.value)">
       </td>
-      <td><input class="edit-input" type="text" value="${escHtmlAttr(r.mid||'')}" onchange="updateImportRow(${idx},'mid',this.value)"></td>
-      <td><input class="edit-input amount" type="number" value="${(r.amount && !isNaN(r.amount)) ? r.amount : ''}" style="width:76px;" onchange="updateImportRow(${idx},'amount',this.value)"></td>
-      <td>
-        <button type="button" class="cat-picker-btn" id="import_who_${idx}_btn" onclick="openWhoPicker('input', 'import_who_${idx}', this)">${r.who ? escHtmlAttr(r.who) : '구분'}</button>
+      <td style="padding:6px 4px; overflow:hidden;"><input class="edit-input" type="text" style="width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px;" value="${escHtmlAttr(r.mid||'')}" onchange="updateImportRow(${idx},'mid',this.value)"></td>
+      <td style="padding:6px 4px;"><input class="edit-input amount" type="text" inputmode="numeric" value="${(r.amount && !isNaN(r.amount)) ? fmt(r.amount) : ''}" style="width:100%; font-size:12px; padding:5px 4px;" onchange="updateImportRow(${idx},'amount',this.value)"></td>
+      <td style="padding:6px 4px; overflow:hidden;">
+        <button type="button" class="cat-picker-btn" id="import_who_${idx}_btn" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11.5px; padding:6px 5px;" onclick="openWhoPicker('input', 'import_who_${idx}', this)">${r.who ? escHtmlAttr(r.who) : '구분'}</button>
         <input type="hidden" id="import_who_${idx}" value="${escHtmlAttr(r.who||'')}" onchange="updateImportRow(${idx},'who',this.value)">
       </td>
-      <td style="white-space:nowrap;">
-        <span style="font-size:12px;${r.valid?'':'color:#b23b3b;'}">${r.valid ? '정상' : '오류'}</span>
-        <button type="button" class="del-btn" title="이 내역 삭제" onclick="deleteImportRow(${idx})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
+      <td style="padding:6px 4px; white-space:nowrap; position:relative;">
+        ${r.duplicate ? `<span title="같은 날짜·금액의 거래가 이미 있어요" style="position:absolute; top:1px; right:1px; font-size:9px; color:#8a6512; line-height:1;">⚠</span>` : ''}
+        <span style="font-size:11.5px;${r.valid?'':'color:#b23b3b;'}">${r.valid ? '정상' : '오류'}</span>
+        <button type="button" class="del-btn" title="이 내역 삭제" style="padding:2px;" onclick="deleteImportRow(${idx})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:14px 0;">가져올 데이터가 없어요</td></tr>';
@@ -1742,9 +1891,10 @@ function updateImportRow(idx, field, value){
   if(field === 'date') r.date = normalizeDateStr(value.trim());
   else if(field === 'cat') r.cat = value.trim();
   else if(field === 'mid') r.mid = value.trim();
-  else if(field === 'amount') r.amount = Number(value);
+  else if(field === 'amount') r.amount = Number(String(value).replace(/[,원\s]/g,''));
   else if(field === 'who') r.who = value;
   r.valid = !!(r.date && r.cat && r.amount && !isNaN(r.amount) && r.amount > 0);
+  r.duplicate = r.valid && r.cat !== '고정지출' && isDuplicateTx(r.date, r.amount);
   renderImportPreview();
 }
 function deleteImportRow(idx){
@@ -1759,8 +1909,15 @@ function confirmImport(){
   const validRows = importParsedRows.filter(r=>r.valid);
   if(validRows.length === 0){ alert('추가할 수 있는 데이터가 없어요.'); return; }
   let lastMonth = null;
+  let txCount = 0, fixedCount = 0;
   validRows.forEach(r=>{
-    store.transactions.push({date:r.date, cat:r.cat, mid:r.mid, detail:r.detail||'', amount:r.amount, who:r.who});
+    if(r.cat === '고정지출'){
+      store.fixedExpenses.push({day: dateToFixedDay(r.date), name: r.mid, amount: r.amount, who: r.who});
+      fixedCount++;
+    } else {
+      store.transactions.push({date:r.date, cat:r.cat, mid:r.mid, detail:r.detail||'', amount:r.amount, who:r.who});
+      txCount++;
+    }
     const mo = extractMonth(r.date);
     if(mo) lastMonth = mo;
   });
@@ -1769,7 +1926,10 @@ function confirmImport(){
   save();
   closeImportModal();
   render();
-  alert(`${validRows.length}건 가져왔어${skipped > 0 ? ` (형식이 안 맞는 ${skipped}건은 건너뜀)` : ''}`);
+  const parts = [];
+  if(txCount) parts.push(`거래 내역 ${txCount}건`);
+  if(fixedCount) parts.push(`고정지출 ${fixedCount}건`);
+  alert(`${parts.join(', ')} 가져왔어${skipped > 0 ? ` (형식이 안 맞는 ${skipped}건은 건너뜀)` : ''}`);
 }
 
 let openCat = null;
