@@ -158,12 +158,12 @@
     position:absolute; right:4px; top:50%; transform:translateY(-50%);
     border:none; background:none; color:var(--sub); padding:5px;
     display:flex; align-items:center; border-radius:6px;
-    cursor:pointer; z-index:1;
+    cursor:pointer; z-index:1; pointer-events:none;
   }
   .cal-btn:hover{background:#eef1f6;}
   .native-date-input{
     position:absolute; right:0; top:0; width:34px; height:100%;
-    opacity:0; margin:0; padding:0; border:0; pointer-events:none;
+    opacity:0; margin:0; padding:0; border:0; pointer-events:auto; z-index:2; cursor:pointer;
   }
   .cat-picker-btn{
     border:1px solid var(--line); border-radius:6px; padding:7px 9px; font-size:13px;
@@ -183,6 +183,7 @@
     position:fixed; z-index:1001; background:#fff; border-radius:12px; padding:12px;
     box-shadow:0 10px 30px rgba(0,0,0,.2); border:1px solid var(--line);
     display:none; flex-direction:column; gap:8px; max-width:260px; visibility:hidden;
+    max-height:min(360px, 80vh); overflow-y:auto;
   }
   .popover-panel.open{display:flex;}
   .popover-panel .cat-pill-wrap{display:flex; flex-wrap:wrap; gap:8px;}
@@ -378,7 +379,7 @@
           <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1" onclick="openDatePicker('am_inc_date')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
           </button>
-          <input type="date" id="am_inc_date_native" class="native-date-input" onchange="onNativeDatePick('am_inc_date','am_inc_date_native')" oninput="onNativeDatePick('am_inc_date','am_inc_date_native')">
+          <input type="date" id="am_inc_date_native" class="native-date-input" onfocus="syncNativeDateInput('am_inc_date','am_inc_date_native')" onchange="onNativeDatePick('am_inc_date','am_inc_date_native')" oninput="onNativeDatePick('am_inc_date','am_inc_date_native')">
         </div>
       </div>
       <div class="modal-field"><label>내용</label><input type="text" id="am_inc_name" placeholder="예: 월급"></div>
@@ -659,7 +660,7 @@
               <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1" onclick="openDatePicker('quickTxDate')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
               </button>
-              <input type="date" id="quickTxDate_native" class="native-date-input" onchange="onNativeDatePick('quickTxDate','quickTxDate_native')" oninput="onNativeDatePick('quickTxDate','quickTxDate_native')">
+              <input type="date" id="quickTxDate_native" class="native-date-input" onfocus="syncNativeDateInput('quickTxDate','quickTxDate_native')" onchange="onNativeDatePick('quickTxDate','quickTxDate_native')" oninput="onNativeDatePick('quickTxDate','quickTxDate_native')">
             </div>
           </td>
           <td>
@@ -1326,15 +1327,24 @@ function positionPopover(panelEl, anchorEl){
   const rect = anchorEl.getBoundingClientRect();
   const panelWidth = panelEl.offsetWidth || 220;
   const panelHeight = panelEl.offsetHeight || 100;
+  // 모바일에서 핀치줌 중이거나 키보드가 떠 있을 때는 실제로 보이는 영역(visualViewport)이
+  // window.innerWidth/innerHeight(레이아웃 뷰포트)랑 달라질 수 있어서, 있으면 그걸 기준으로 계산한다.
+  const vv = window.visualViewport;
+  const vLeft = vv ? vv.offsetLeft : 0;
+  const vTop = vv ? vv.offsetTop : 0;
+  const vWidth = vv ? vv.width : window.innerWidth;
+  const vHeight = vv ? vv.height : window.innerHeight;
   let left = rect.left;
   let top = rect.bottom + 6;
-  const maxLeft = window.innerWidth - panelWidth - 10;
-  if(left > maxLeft) left = Math.max(10, maxLeft);
-  if(left < 10) left = 10;
-  if(top + panelHeight > window.innerHeight - 10){
+  const minLeft = vLeft + 10;
+  const maxLeft = vLeft + vWidth - panelWidth - 10;
+  if(left > maxLeft) left = Math.max(minLeft, maxLeft);
+  if(left < minLeft) left = minLeft;
+  if(top + panelHeight > vTop + vHeight - 10){
     top = rect.top - panelHeight - 6;
-    if(top < 10) top = 10;
   }
+  const minTop = vTop + 10;
+  if(top < minTop) top = minTop;
   panelEl.style.left = left + 'px';
   panelEl.style.top = top + 'px';
 }
@@ -1488,7 +1498,7 @@ function renderAddModalFields(){
             <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1" onclick="openDatePicker('am_tx_date')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
             </button>
-            <input type="date" id="am_tx_date_native" class="native-date-input" onchange="onNativeDatePick('am_tx_date','am_tx_date_native')" oninput="onNativeDatePick('am_tx_date','am_tx_date_native')">
+            <input type="date" id="am_tx_date_native" class="native-date-input" onfocus="syncNativeDateInput('am_tx_date','am_tx_date_native')" onchange="onNativeDatePick('am_tx_date','am_tx_date_native')" oninput="onNativeDatePick('am_tx_date','am_tx_date_native')">
           </div>
         </div>
         <div class="modal-field">
@@ -1543,8 +1553,23 @@ function renderAddModalFields(){
 function openDatePicker(textInputId){
   const native = document.getElementById(textInputId + '_native');
   if(!native) return;
+  syncNativeDateInput(textInputId, textInputId + '_native');
   if(native.showPicker){ try{ native.showPicker(); }catch(e){ native.click(); } }
   else{ native.click(); }
+}
+// 텍스트 필드의 현재 값을 native date input에 맞춰준다. 이걸 안 해주면 이전에 골랐던 날짜가 그대로 남아있어서,
+// 같은 날짜(예: 오늘)를 다시 눌러도 값이 안 바뀐 걸로 처리돼 선택이 안 되는 것처럼 보인다.
+function syncNativeDateInput(textInputId, nativeId){
+  const textEl = document.getElementById(textInputId);
+  const native = document.getElementById(nativeId);
+  if(!textEl || !native) return;
+  const parts = parseDateParts(textEl.value);
+  if(parts){
+    const year = new Date().getFullYear();
+    native.value = `${year}-${String(parts.month).padStart(2,'0')}-${String(parts.day).padStart(2,'0')}`;
+  } else {
+    native.value = '';
+  }
 }
 function onNativeDatePick(textInputId, nativeId){
   const native = document.getElementById(nativeId);
@@ -1864,7 +1889,7 @@ function renderImportPreview(){
           <button type="button" class="cal-btn" title="달력에서 선택" tabindex="-1" style="right:2px; padding:3px;" onclick="openDatePicker('import_date_${idx}')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M3 10h18"></path></svg>
           </button>
-          <input type="date" id="import_date_${idx}_native" class="native-date-input" onchange="onNativeDatePick('import_date_${idx}','import_date_${idx}_native'); updateImportRow(${idx},'date',document.getElementById('import_date_${idx}').value)" oninput="onNativeDatePick('import_date_${idx}','import_date_${idx}_native')">
+          <input type="date" id="import_date_${idx}_native" class="native-date-input" onfocus="syncNativeDateInput('import_date_${idx}','import_date_${idx}_native')" onchange="onNativeDatePick('import_date_${idx}','import_date_${idx}_native'); updateImportRow(${idx},'date',document.getElementById('import_date_${idx}').value)" oninput="onNativeDatePick('import_date_${idx}','import_date_${idx}_native')">
         </div>
       </td>
       <td style="padding:6px 4px; overflow:hidden;">
