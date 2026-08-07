@@ -350,6 +350,14 @@
     <div id="catPickerList" class="cat-pill-wrap"></div>
   </div>
 
+  <div class="popover-panel" id="catDeleteConfirmPanel" style="max-width:170px; padding:9px;">
+    <div id="catDeleteConfirmLabel" style="font-size:12.5px;"></div>
+    <div style="display:flex; justify-content:flex-end; gap:6px;">
+      <button type="button" class="cancel-btn" style="padding:5px 9px; font-size:12px;" onclick="cancelDeleteCategory()">취소</button>
+      <button type="button" style="border:none;border-radius:6px;padding:5px 9px;background:#fbdede;color:#b23b3b;font-size:12px;font-weight:600;cursor:pointer;" onclick="confirmDeleteCategory()">삭제</button>
+    </div>
+  </div>
+
   <div class="popover-panel" id="whoPickerPanel">
     <div id="whoPickerList" class="cat-pill-wrap"></div>
   </div>
@@ -906,6 +914,7 @@ function normalizeStore(raw){
   if(!normalized.goal.targetDate) normalized.goal.targetDate = DEFAULT_DATA.goal.targetDate;
   if(!normalized.goal.costItems) normalized.goal.costItems = [];
   if(!normalized.goal.deductionItems) normalized.goal.deductionItems = [];
+  if(!normalized.hiddenCats) normalized.hiddenCats = [];
 
   if(normalized.manual && normalized.manual.consumption !== undefined){
     normalized.manual = {
@@ -1322,9 +1331,9 @@ function normalizeDateStr(raw){
   return s;
 }
 
-function positionPopover(panelEl, anchorEl){
-  if(!anchorEl){ return; }
-  const rect = anchorEl.getBoundingClientRect();
+// rect는 {left, top, bottom} 형태면 되고, 앵커 엘리먼트의 getBoundingClientRect() 결과 또는
+// 마우스 클릭 좌표를 흉내낸 객체({left:x, top:y, bottom:y}) 둘 다 받을 수 있다.
+function positionPopoverAt(panelEl, rect){
   const panelWidth = panelEl.offsetWidth || 220;
   const panelHeight = panelEl.offsetHeight || 100;
   // 모바일에서 핀치줌 중이거나 키보드가 떠 있을 때는 실제로 보이는 영역(visualViewport)이
@@ -1348,6 +1357,10 @@ function positionPopover(panelEl, anchorEl){
   panelEl.style.left = left + 'px';
   panelEl.style.top = top + 'px';
 }
+function positionPopover(panelEl, anchorEl){
+  if(!anchorEl){ return; }
+  positionPopoverAt(panelEl, anchorEl.getBoundingClientRect());
+}
 function showPopover(panelId, anchorEl){
   const panel = document.getElementById(panelId);
   document.getElementById('popoverBackdrop').classList.add('open');
@@ -1355,6 +1368,17 @@ function showPopover(panelId, anchorEl){
   panel.style.visibility = 'hidden';
   requestAnimationFrame(()=>{
     positionPopover(panel, anchorEl);
+    panel.style.visibility = 'visible';
+  });
+}
+// 우클릭한 그 자리(마우스 좌표)에 작은 팝업을 띄울 때 씀 (예: 카테고리 삭제 확인)
+function showPopoverAtPoint(panelId, x, y){
+  const panel = document.getElementById(panelId);
+  document.getElementById('popoverBackdrop').classList.add('open');
+  panel.classList.add('open');
+  panel.style.visibility = 'hidden';
+  requestAnimationFrame(()=>{
+    positionPopoverAt(panel, {left:x, top:y, bottom:y});
     panel.style.visibility = 'visible';
   });
 }
@@ -1372,6 +1396,7 @@ function closeAllPopovers(){
   document.querySelectorAll('.popover-panel').forEach(p=>p.classList.remove('open'));
   catPickerTargetId = null;
   catPickerTargetTxIndex = null;
+  catDeletePendingName = null;
   whoPickerCtx = null;
   memoPickerCtx = null;
 }
@@ -1381,18 +1406,51 @@ let catPickerTargetTxIndex = null;
 function openCatPicker(targetInputId, txIndex, anchorEl){
   catPickerTargetId = targetInputId || null;
   catPickerTargetTxIndex = (txIndex !== undefined && txIndex !== null) ? txIndex : null;
-  const hidden = targetInputId ? document.getElementById(targetInputId) : null;
-  const currentValue = catPickerTargetTxIndex !== null
+  document.getElementById('catPickerCustomInput').value = '';
+  renderCatPickerList();
+  showPopover('catPickerPanel', anchorEl);
+}
+function currentCatPickerValue(){
+  const hidden = catPickerTargetId ? document.getElementById(catPickerTargetId) : null;
+  return catPickerTargetTxIndex !== null
     ? (store.transactions[catPickerTargetTxIndex] ? store.transactions[catPickerTargetTxIndex].cat : '')
     : (hidden ? hidden.value : '');
-  document.getElementById('catPickerCustomInput').value = '';
-  const allCats = Array.from(new Set([...DEFAULT_CATS, ...store.transactions.map(t=>t.cat)])).filter(Boolean);
+}
+function renderCatPickerList(){
+  const currentValue = currentCatPickerValue();
+  const hiddenCats = store.hiddenCats || [];
+  const allCats = Array.from(new Set([...DEFAULT_CATS, ...store.transactions.map(t=>t.cat)]))
+    .filter(Boolean)
+    .filter(c => !hiddenCats.includes(c))
+    .sort((a,b)=>a.localeCompare(b,'ko'));
   document.getElementById('catPickerList').innerHTML = allCats.map(c=>{
     const bg = colorForCat(c);
     const active = currentValue===c;
-    return `<button type="button" class="cat-pill ${active?'active':''}" style="background:${bg};color:#4a4a4a;" onclick="selectCatPicker('${escAttr(c)}')">${c}</button>`;
+    return `<button type="button" class="cat-pill ${active?'active':''}" style="background:${bg};color:#4a4a4a;" onclick="selectCatPicker('${escAttr(c)}')" oncontextmenu="return deleteCategoryFromPicker(event,'${escAttr(c)}')" title="우클릭하면 이 카테고리를 목록에서 지울 수 있어요">${c}</button>`;
   }).join('');
-  showPopover('catPickerPanel', anchorEl);
+}
+let catDeletePendingName = null;
+function deleteCategoryFromPicker(event, cat){
+  event.preventDefault();
+  catDeletePendingName = cat;
+  document.getElementById('catDeleteConfirmLabel').textContent = `"${cat}" 지울까요?`;
+  showPopoverAtPoint('catDeleteConfirmPanel', event.clientX, event.clientY);
+  return false;
+}
+function confirmDeleteCategory(){
+  const cat = catDeletePendingName;
+  if(cat){
+    if(!store.hiddenCats) store.hiddenCats = [];
+    if(!store.hiddenCats.includes(cat)) store.hiddenCats.push(cat);
+    save();
+    renderCatPickerList();
+  }
+  catDeletePendingName = null;
+  document.getElementById('catDeleteConfirmPanel').classList.remove('open');
+}
+function cancelDeleteCategory(){
+  catDeletePendingName = null;
+  document.getElementById('catDeleteConfirmPanel').classList.remove('open');
 }
 function closeCatPicker(){
   document.getElementById('catPickerPanel').classList.remove('open');
