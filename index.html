@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=680">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💰</text></svg>">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#34558b">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>우리 가계부</title>
 <style>
   :root{
@@ -1048,6 +1051,37 @@ function deleteFixed(i){
   store.fixedExpenses.splice(i,1);
   save(); render();
 }
+// 고정지출 목록에서 이름이 특정 키워드를 포함하면 하나의 항목으로 묶어서 보여준다 (예: 티머니류 → 교통비).
+// 실제 store.fixedExpenses 데이터는 그대로 각각 따로 저장돼 있고, 화면에 묶어서만 보여주는 것.
+const FIXED_EXPENSE_DISPLAY_GROUPS = [
+  { label:'교통비', keywords:['티머니'] },
+  { label:'보험', keywords:['보험'] }
+];
+function fixedGroupLabelFor(name){
+  const n = String(name||'');
+  for(const g of FIXED_EXPENSE_DISPLAY_GROUPS){
+    if(g.keywords.some(k=>n.includes(k))) return g.label;
+  }
+  return null;
+}
+let openFixedGroup = null;
+function toggleFixedGroupDetail(key){
+  openFixedGroup = (openFixedGroup === key) ? null : key;
+  render();
+}
+function addFixedToGroup(who, label){
+  const idBase = `fxgroup_${who}_${label}`;
+  const dayEl = document.getElementById(idBase+'_day');
+  const nameEl = document.getElementById(idBase+'_name');
+  const amountEl = document.getElementById(idBase+'_amount');
+  const day = dayEl ? dayEl.value.trim() : '';
+  const name = nameEl ? nameEl.value.trim() : '';
+  const amount = Number(amountEl ? amountEl.value : 0);
+  if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
+  store.fixedExpenses.push({day, name, amount, who});
+  save();
+  render();
+}
 let editingFixedIndex = null;
 function editFixed(i){ editingFixedIndex = i; render(); }
 function cancelEditFixed(){ editingFixedIndex = null; render(); }
@@ -1858,6 +1892,59 @@ function showImportPreview(){
   document.getElementById('importInputView').style.display = 'none';
   document.getElementById('importPreviewView').style.display = 'block';
 }
+
+// 결제 알림 문자를 "공유"로 받았을 때 대충 읽어보는 초벌 파서.
+// 아직 실제 문자 샘플을 못 받아서 정확한 형식을 모르는 상태라, 최대한 관대하게 추측만 해본다.
+// (금액/날짜/가맹점명 중 하나라도 못 찾으면 null을 돌려주고, 그러면 원문 그대로 붙여넣기 칸에 넣어줘서
+//  최소한 손으로 고칠 수 있게 해둔다.)
+function parseShareText(text){
+  const s = String(text||'').trim();
+  if(!s) return null;
+  const amountMatch = s.match(/([\d,]{4,})\s*원/);
+  if(!amountMatch) return null;
+  const amount = Number(amountMatch[1].replace(/,/g,''));
+  if(!amount || isNaN(amount) || amount<=0) return null;
+
+  const dateParts = parseDateParts(s);
+  const now = new Date();
+  const date = dateParts
+    ? normalizeDateStr(s)
+    : `${String(now.getMonth()+1).padStart(2,'0')}월 ${String(now.getDate()).padStart(2,'0')}일`;
+
+  // 흔한 잡단어와 날짜/시간/금액 조각을 지우고 남는 걸 가맹점명으로 추측
+  let merchant = s
+    .replace(/\[Web발신\]/gi, '')
+    .replace(amountMatch[0], '')
+    .replace(/\d{1,2}[:.]\d{2}(:\d{2})?/g, '')
+    .replace(/\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2}/g, '')
+    .replace(/\d{1,2}\s*월\s*\d{1,2}\s*일/g, '')
+    .replace(/\d{1,2}[.\-\/]\d{1,2}(?!\d)/g, '')
+    .replace(/(신한|현대|삼성|국민|우리|하나|롯데|비씨|농협)\s*카드/g, '')
+    .replace(/(승인|취소|일시불|할부|체크카드|신용카드|누적|잔액|사용)/g, '')
+    .replace(/[가-힣]{2,4}님/g, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/[\[\]*]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  merchant = merchant.replace(/^[-,·\s]+|[-,·\s]+$/g, '');
+
+  return { date, merchant, amount };
+}
+function handleIncomingShare(){
+  const params = new URLSearchParams(window.location.search);
+  const sharedText = params.get('share_text') || params.get('share_title') || '';
+  if(!sharedText) return;
+  history.replaceState(null, '', window.location.pathname); // 새로고침해도 다시 뜨지 않게 주소 정리
+  openImportModal();
+  const parsed = parseShareText(sharedText);
+  if(!parsed){
+    document.getElementById('importPasteArea').value = sharedText;
+    document.getElementById('importFileHint').textContent = '공유된 내용에서 자동으로 못 읽었어요. 아래 붙여넣기 칸에서 형식을 맞춰줄 수 있어요.';
+    return;
+  }
+  buildParsedRowsFromBankRows([parsed], '공동');
+  showImportPreview();
+}
 function onImportFileSelected(e){
   const file = e.target.files[0];
   if(!file) return;
@@ -2366,10 +2453,50 @@ function render(){
        <button class="del-btn" title="삭제" onclick="deleteFixed(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
      </div></td></tr>`;
   }
-  function fixedTableHtml(items, total){
+  function fixedGroupRowHtml(label, groupItems, who){
+    const groupTotal = groupItems.reduce((s,{f})=>s+Number(f.amount||0),0);
+    const key = `${who}_${label}`;
+    const isOpen = openFixedGroup === key;
+    const headerRow = `<tr class="clickable-row" onclick="toggleFixedGroupDetail('${escAttr(key)}')">
+      <td></td><td>${isOpen?'▾ ':'▸ '}${label}</td><td class="num">${fmt(groupTotal)}</td><td></td>
+    </tr>`;
+    if(!isOpen) return headerRow;
+    const detailHtml = groupItems.map(({f,i})=>
+      `<div class="cat-detail-row"><span>${f.day ? escHtmlAttr(f.day)+' · ' : ''}${escHtmlAttr(f.name)}</span>
+        <span style="display:flex;align-items:center;gap:6px;">${fmt(f.amount)}원
+          <button type="button" class="del-btn" title="삭제" onclick="deleteFixed(${i})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
+        </span></div>`
+    ).join('');
+    const detailRow = `<tr><td colspan="4" style="padding:0;">
+      <div class="cat-detail">
+        ${detailHtml}
+        <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);">
+          <input type="text" class="edit-input" id="fxgroup_${who}_${label}_day" placeholder="결제일" style="width:60px;">
+          <input type="text" class="edit-input" id="fxgroup_${who}_${label}_name" placeholder="예: 티머니지하철" style="flex:1;">
+          <input type="number" class="edit-input amount" id="fxgroup_${who}_${label}_amount" placeholder="금액" style="width:90px;">
+          <button type="button" class="save-btn" onclick="addFixedToGroup('${escAttr(who)}','${escAttr(label)}')">추가</button>
+        </div>
+      </div>
+    </td></tr>`;
+    return headerRow + detailRow;
+  }
+  function fixedTableHtml(items, total, who){
+    const groups = {};
+    const ungrouped = [];
+    items.forEach(({f,i})=>{
+      const label = fixedGroupLabelFor(f.name);
+      if(label){
+        if(!groups[label]) groups[label] = [];
+        groups[label].push({f,i});
+      } else {
+        ungrouped.push({f,i});
+      }
+    });
+    const rowsHtml = Object.keys(groups).map(label=>fixedGroupRowHtml(label, groups[label], who)).join('')
+      + ungrouped.map(({f,i})=>fixedRowHtml(f,i)).join('');
     return `<table>
       <thead><tr><th>결제일</th><th>내용</th><th class="num">금액</th><th></th></tr></thead>
-      <tbody>${items.map(({f,i})=>fixedRowHtml(f,i)).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--sub);font-size:11.5px;padding:14px 0;">내역 없음</td></tr>'}</tbody>
+      <tbody>${rowsHtml || '<tr><td colspan="4" style="text-align:center;color:var(--sub);font-size:11.5px;padding:14px 0;">내역 없음</td></tr>'}</tbody>
       <tfoot><tr class="total"><td colspan="2">계</td><td class="num">${fmt(total)}</td><td></td></tr></tfoot>
     </table>`;
   }
@@ -2477,16 +2604,16 @@ function render(){
         <div class="two-col">
           <div>
             <div style="margin-bottom:8px;"><span class="badge 동구">동구</span></div>
-            ${fixedTableHtml(fxDonggu, fxDongguTotal)}
+            ${fixedTableHtml(fxDonggu, fxDongguTotal, '동구')}
           </div>
           <div>
             <div style="margin-bottom:8px;"><span class="badge 다혜">다혜</span></div>
-            ${fixedTableHtml(fxDahye, fxDahyeTotal)}
+            ${fixedTableHtml(fxDahye, fxDahyeTotal, '다혜')}
           </div>
         </div>
         <div style="margin-top:16px;padding-top:16px;border-top:1px dashed var(--line);">
           <div style="margin-bottom:8px;"><span class="badge 공동">공동</span></div>
-          ${fixedTableHtml(fxGongdong, fxGongdongTotal)}
+          ${fixedTableHtml(fxGongdong, fxGongdongTotal, '공동')}
         </div>
       </section>
       <section>
@@ -2519,7 +2646,7 @@ function render(){
             <h2>📌 고정지출 (결제일 기준)</h2>
             <button type="button" class="section-add-btn" onclick="openAddModal('fixed')" title="고정지출 추가"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
           </div>
-          ${fixedTableHtml(sortedFixed, fixedTotal)}
+          ${fixedTableHtml(sortedFixed, fixedTotal, ledgerView)}
         </section>
         <section>
           <div class="section-title-row">
@@ -2646,7 +2773,7 @@ window.addEventListener('scroll', ()=>{
 document.getElementById('assetSnapshotMonth').value = new Date().getMonth()+1;
 render();
 switchTab('monthly');
-initFirestore();
+initFirestore().then(handleIncomingShare);
 </script>
 </body>
 </html>
