@@ -1628,6 +1628,7 @@ function renderAddModalFields(){
           <input type="hidden" id="am_tx_who" value="다혜">
         </div>
       </div>`;
+    selectInlineWho('am_tx_who_group','am_tx_who', currentWho());
   } else if(type === 'fixed'){
     el.innerHTML = `
       <div class="modal-grid">
@@ -1643,6 +1644,7 @@ function renderAddModalFields(){
           <input type="hidden" id="am_fx_who" value="다혜">
         </div>
       </div>`;
+    selectInlineWho('am_fx_who_group','am_fx_who', currentWho());
   } else if(type === 'saving'){
     el.innerHTML = `
       <div class="modal-grid">
@@ -1658,6 +1660,7 @@ function renderAddModalFields(){
           <input type="hidden" id="am_sv_who" value="다혜">
         </div>
       </div>`;
+    selectInlineWho('am_sv_who_group','am_sv_who', currentWho());
   }
 }
 function openDatePicker(textInputId){
@@ -1737,8 +1740,7 @@ function submitQuickTx(){
   document.getElementById('quickTxCat_btn').textContent = '선택';
   document.getElementById('quickTxMid').value = '';
   document.getElementById('quickTxAmount').value = '';
-  document.getElementById('quickTxWho').value = '공동';
-  document.getElementById('quickTxWho_btn').textContent = '구분';
+  resetQuickTxWhoDefault();
   render();
 }
 
@@ -1747,8 +1749,7 @@ function openIncomeModal(){
   document.getElementById('am_inc_date').value = '';
   document.getElementById('am_inc_name').value = '';
   document.getElementById('am_inc_amount').value = '';
-  document.getElementById('am_inc_who').value = '다혜';
-  selectInlineWho('am_inc_who_group','am_inc_who','다혜');
+  selectInlineWho('am_inc_who_group','am_inc_who', currentWho());
 }
 function closeIncomeModal(){
   document.getElementById('incomeModalOverlay').classList.remove('open');
@@ -1977,7 +1978,7 @@ function onImportFileSelected(e){
       let bankRows = null;
       try{ bankRows = parseXlsxBankFile(buf); }catch(err){ console.error('xlsx 파싱 실패:', err); }
       if(bankRows && bankRows.length){
-        buildParsedRowsFromBankRows(bankRows, '공동');
+        buildParsedRowsFromBankRows(bankRows, currentWho());
         showImportPreview();
       } else {
         hintEl.textContent = '알고 있는 카드사 형식이 아니에요. CSV로 저장하거나 셀을 복사해서 붙여넣어줘.';
@@ -1989,7 +1990,7 @@ function onImportFileSelected(e){
       let bankRows = null;
       try{ bankRows = parseHtmlBankFile(text); }catch(err){ console.error('xls(html) 파싱 실패:', err); }
       if(bankRows && bankRows.length){
-        buildParsedRowsFromBankRows(bankRows, '공동');
+        buildParsedRowsFromBankRows(bankRows, currentWho());
         showImportPreview();
       } else {
         hintEl.textContent = '알고 있는 카드사 형식이 아니에요. CSV로 저장하거나 셀을 복사해서 붙여넣어줘.';
@@ -2813,12 +2814,34 @@ function signOutApp(){
   firebase.auth().signOut();
 }
 
+// 로그인한 구글 계정에 따라 "다혜/동구" 기본값을 정할 때 씀
+const EMAIL_TO_WHO = { 'goemrj1326@gmail.com':'다혜', 'shaplen94@gmail.com':'동구' };
+function currentWho(){
+  const user = firebase.auth().currentUser;
+  return (user && EMAIL_TO_WHO[user.email]) || '공동';
+}
+function resetQuickTxWhoDefault(){
+  const who = currentWho();
+  const el = document.getElementById('quickTxWho');
+  const btn = document.getElementById('quickTxWho_btn');
+  if(el) el.value = who;
+  if(btn) btn.textContent = who;
+}
+// 로그인한 사람 기준으로 "가계부 보기"와 빠른 입력 줄의 기본 구분을 맞춰준다.
+function applyLoginWhoDefaults(){
+  const who = currentWho();
+  ledgerView = who;
+  document.getElementById('ledgerViewBtn').textContent = who;
+  resetQuickTxWhoDefault();
+}
+
 let firestoreInitStarted = false;
 firebase.auth().onAuthStateChanged(function(user){
   if(user){
     showAppScreen();
     if(!firestoreInitStarted){
       firestoreInitStarted = true;
+      applyLoginWhoDefaults();
       switchTab('monthly');
       initFirestore().then(handleIncomingShare);
     }
