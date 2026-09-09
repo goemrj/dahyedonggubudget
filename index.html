@@ -235,6 +235,15 @@
 </style>
 </head>
 <body>
+<div class="modal-overlay open" id="loginOverlay" style="z-index:2000;">
+  <div class="modal-box" style="max-width:320px; text-align:center;">
+    <div style="font-size:36px; margin-bottom:10px;">💰</div>
+    <h3 style="margin:0 0 6px;">우리 가계부</h3>
+    <div class="hint" style="margin-bottom:22px;">허용된 계정으로 로그인해야 볼 수 있어요</div>
+    <button type="button" class="add-btn" style="width:100%; padding:12px; font-size:14px;" onclick="signInWithGoogle()">Google로 로그인</button>
+    <div id="loginErrorMsg" style="color:#b23b3b; font-size:12.5px; margin-top:14px;"></div>
+  </div>
+</div>
 <div class="wrap">
 
   <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
@@ -242,6 +251,7 @@
     <div style="display:flex; align-items:center; gap:8px;">
       <button class="import-btn" onclick="openImportModal()">⇪ 엑셀/CSV 가져오기</button>
       <button type="button" class="cat-picker-btn" id="ledgerViewBtn" style="width:auto; padding:6px 13px; font-size:12.5px; color:var(--sub);" title="가계부 보기 (전체/다혜/동구/공동)" onclick="openLedgerViewPicker(this)">전체</button>
+      <button type="button" class="cat-picker-btn" style="width:auto; padding:6px 13px; font-size:12.5px; color:var(--sub);" title="로그아웃" onclick="signOutApp()">로그아웃</button>
     </div>
   </div>
   <div class="subtitle" id="subtitle"></div>
@@ -708,6 +718,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <script>
 const firebaseConfig = {
@@ -1039,6 +1050,13 @@ async function initFirestore(){
     });
   }catch(error){
     console.error('Firestore 초기화 실패:', error);
+    if(error.code === 'permission-denied'){
+      // 로그인은 됐지만 허용되지 않은 계정 — 로그인 화면으로 돌려보낸다
+      setLoginError('이 계정은 접근 권한이 없어요. 허용된 계정으로 다시 로그인해줘.');
+      showLoginScreen();
+      firebase.auth().signOut();
+      return;
+    }
     setSyncStatus('Firestore 연결 실패: ' + (error.code || error.message || '알 수 없는 오류'), 'error');
   }
 }
@@ -2771,9 +2789,44 @@ window.addEventListener('scroll', ()=>{
 });
 
 document.getElementById('assetSnapshotMonth').value = new Date().getMonth()+1;
-render();
-switchTab('monthly');
-initFirestore().then(handleIncomingShare);
+
+function showLoginScreen(){
+  document.getElementById('loginOverlay').classList.add('open');
+  document.querySelector('.wrap').style.display = 'none';
+}
+function showAppScreen(){
+  document.getElementById('loginOverlay').classList.remove('open');
+  document.querySelector('.wrap').style.display = 'block';
+}
+function setLoginError(msg){
+  document.getElementById('loginErrorMsg').textContent = msg || '';
+}
+function signInWithGoogle(){
+  setLoginError('');
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).catch(err=>{
+    console.error('로그인 실패:', err);
+    setLoginError('로그인에 실패했어요. 다시 시도해줘.');
+  });
+}
+function signOutApp(){
+  firebase.auth().signOut();
+}
+
+let firestoreInitStarted = false;
+firebase.auth().onAuthStateChanged(function(user){
+  if(user){
+    showAppScreen();
+    if(!firestoreInitStarted){
+      firestoreInitStarted = true;
+      switchTab('monthly');
+      initFirestore().then(handleIncomingShare);
+    }
+  } else {
+    firestoreInitStarted = false;
+    showLoginScreen();
+  }
+});
 </script>
 </body>
 </html>
