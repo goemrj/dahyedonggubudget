@@ -250,6 +250,7 @@
     <h1>우리 가계부</h1>
     <div style="display:flex; align-items:center; gap:8px;">
       <button class="import-btn" onclick="openImportModal()">⇪ 엑셀/CSV 가져오기</button>
+      <button type="button" class="cat-picker-btn" style="width:auto; padding:6px 13px; font-size:12.5px; color:var(--sub);" title="완전히 똑같은 거래/고정지출이 중복으로 들어간 걸 찾아서 정리해요" onclick="findAndCleanDuplicates()">중복 정리</button>
       <button type="button" class="cat-picker-btn" id="ledgerViewBtn" style="width:auto; padding:6px 13px; font-size:12.5px; color:var(--sub);" title="가계부 보기 (전체/다혜/동구/공동)" onclick="openLedgerViewPicker(this)">전체</button>
       <button type="button" class="cat-picker-btn" style="width:auto; padding:6px 13px; font-size:12.5px; color:var(--sub);" title="로그아웃" onclick="signOutApp()">로그아웃</button>
     </div>
@@ -1069,6 +1070,53 @@ function deleteFixed(i){
   store.fixedExpenses.splice(i,1);
   save(); render();
 }
+// 거래내역/고정지출에서 날짜·분류·이름·금액·구분까지 완전히 똑같은 항목(예: 같은 파일을 실수로 두 번 가져온 경우)을 찾아서
+// 그룹당 1개만 남기고 나머지를 지운다. 실제로 지우기 전에 몇 건인지 먼저 보여주고 확인을 받는다.
+function findAndCleanDuplicates(){
+  const txGroups = {};
+  store.transactions.forEach((t,i)=>{
+    const key = JSON.stringify([t.date, t.cat, t.mid||'', t.detail||'', t.amount, t.who]);
+    (txGroups[key] = txGroups[key] || []).push(i);
+  });
+  const fxGroups = {};
+  store.fixedExpenses.forEach((f,i)=>{
+    const key = JSON.stringify([f.day||'', f.name, f.amount, f.who]);
+    (fxGroups[key] = fxGroups[key] || []).push(i);
+  });
+  const txDupGroups = Object.values(txGroups).filter(idxs=>idxs.length>1);
+  const fxDupGroups = Object.values(fxGroups).filter(idxs=>idxs.length>1);
+  const txExtra = txDupGroups.reduce((s,idxs)=>s+(idxs.length-1),0);
+  const fxExtra = fxDupGroups.reduce((s,idxs)=>s+(idxs.length-1),0);
+  if(txExtra===0 && fxExtra===0){ alert('완전히 똑같은 중복 항목은 없어요.'); return; }
+
+  const sample = [];
+  txDupGroups.slice(0,5).forEach(idxs=>{
+    const t = store.transactions[idxs[0]];
+    sample.push(`거래: ${t.date} ${t.cat} ${t.mid||''} ${fmt(t.amount)}원 · ${t.who} (${idxs.length}개 중 ${idxs.length-1}개 삭제)`);
+  });
+  fxDupGroups.slice(0,5).forEach(idxs=>{
+    const f = store.fixedExpenses[idxs[0]];
+    sample.push(`고정지출: ${f.name} ${fmt(f.amount)}원 · ${f.who} (${idxs.length}개 중 ${idxs.length-1}개 삭제)`);
+  });
+  const moreCount = (txDupGroups.length + fxDupGroups.length) - sample.length;
+  const msg = `완전히 똑같은 항목을 찾았어요.\n`
+    + `거래내역: ${txExtra}건 삭제 예정, 고정지출: ${fxExtra}건 삭제 예정\n(각 그룹에서 1개씩만 남겨요)\n\n예시:\n${sample.join('\n')}`
+    + (moreCount>0 ? `\n...외 ${moreCount}개 그룹 더` : '')
+    + `\n\n이대로 정리할까요? (한 번에 되돌릴 수 있어요 — 되돌리기 버튼)`;
+  if(!confirm(msg)) return;
+
+  const removeTxIdx = new Set();
+  txDupGroups.forEach(idxs=>{ idxs.slice(1).forEach(i=>removeTxIdx.add(i)); });
+  store.transactions = store.transactions.filter((_,i)=>!removeTxIdx.has(i));
+
+  const removeFxIdx = new Set();
+  fxDupGroups.forEach(idxs=>{ idxs.slice(1).forEach(i=>removeFxIdx.add(i)); });
+  store.fixedExpenses = store.fixedExpenses.filter((_,i)=>!removeFxIdx.has(i));
+
+  save();
+  render();
+  alert(`정리 완료! 거래내역 ${txExtra}건, 고정지출 ${fxExtra}건을 지웠어.`);
+}
 // 고정지출 목록에서 이름이 특정 키워드를 포함하면 하나의 항목으로 묶어서 보여준다 (예: 티머니류 → 교통비).
 // 실제 store.fixedExpenses 데이터는 그대로 각각 따로 저장돼 있고, 화면에 묶어서만 보여주는 것.
 const FIXED_EXPENSE_DISPLAY_GROUPS = [
@@ -1820,6 +1868,10 @@ function openImportModal(){
   document.getElementById('importPreviewView').style.display = 'none';
 }
 function closeImportModal(){
+  const previewOpen = document.getElementById('importPreviewView').style.display !== 'none';
+  if(previewOpen && importParsedRows.length > 0){
+    if(!confirm('미리보기에서 정리한 내용이 사라져요. 정말 닫을까요?')) return;
+  }
   document.getElementById('importModalOverlay').classList.remove('open');
   importParsedRows = [];
   document.getElementById('importInputView').style.display = 'block';
@@ -2112,6 +2164,7 @@ function confirmImport(){
   });
   const skipped = importParsedRows.length - validRows.length;
   if(lastMonth) selectedMonth = lastMonth;
+  importParsedRows = []; // 이미 저장 끝났으니 닫을 때 "정말 닫을까요?" 확인이 안 뜨게 먼저 비워둔다
   save();
   closeImportModal();
   render();
