@@ -1103,7 +1103,8 @@ function deleteFixed(i){
 // 7월 안에서 "같은 날짜 + 같은 금액"인 거래가 여러 건 있으면 중복 후보로 본다. 구분(다혜/동구/공동)은 일부러
 // 조건에서 뺐다 — 가져오기할 때 로그인한 사람 이름이 기본값으로 깔리는 경우가 있어서, 실제로는 같은 거래인데
 // 구분만 다르게 저장돼 있을 수 있기 때문. 대신 카테고리/메모/구분이 다를 수도 있는 걸 감안해서 자동으로 아무것도
-// 지우지 않고, 전체 후보를 표로 보여준 다음 사람이 직접 체크박스로 골라서 지우게 한다 (기본은 전부 체크 해제 상태).
+// 지우지 않고, 전체 후보를 표로 보여준 다음 사람이 직접 체크박스로 골라서 지우게 한다 (기본은 전부 체크된 상태 —
+// 지울 필요 없는 것만 직접 체크 해제).
 let julyDupCandidates = [];
 function openJulyDupReview(){
   const JULY = 7;
@@ -1120,8 +1121,8 @@ function openJulyDupReview(){
   julyDupCandidates = [];
   dupGroupsArr.forEach((idxs, gi)=>{
     idxs.forEach((i)=>{
-      // 기본은 전부 체크 해제 — 표에서 구분/내용을 직접 보고 진짜 중복인 것만 체크해서 지우게 한다.
-      julyDupCandidates.push({ i, group: gi, checked: false });
+      // 기본은 전부 체크 — 표에서 구분/내용을 직접 보고 지울 필요 없는 것만 체크 해제하게 한다.
+      julyDupCandidates.push({ i, group: gi, checked: true });
     });
   });
   renderJulyDupReview();
