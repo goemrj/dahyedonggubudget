@@ -250,7 +250,6 @@
     <h1>우리 가계부</h1>
     <div style="display:flex; align-items:center; gap:8px;">
       <button class="import-btn" onclick="openImportModal()">⇪ 엑셀/CSV 가져오기</button>
-      <button type="button" class="cat-picker-btn" style="width:auto; padding:6px 13px; font-size:12.5px; color:#b23b3b;" title="7월 안에서 같은 날짜·금액인 중복 후보를 표로 보여주고, 직접 체크해서 지울 수 있어요" onclick="openJulyDupReview()">7월 중복 정리</button>
       <button type="button" class="cat-picker-btn" id="ledgerViewBtn" style="width:auto; padding:6px 13px; font-size:12.5px; color:var(--sub);" title="가계부 보기 (전체/다혜/동구/공동)" onclick="openLedgerViewPicker(this)">전체</button>
       <button type="button" class="cat-picker-btn" style="width:auto; padding:6px 13px; font-size:12.5px; color:var(--sub);" title="로그아웃" onclick="signOutApp()">로그아웃</button>
     </div>
@@ -353,36 +352,6 @@
           <button class="cancel-btn" onclick="backToImportInput()">다시 수정</button>
           <button class="add-btn" onclick="confirmImport()">추가하기</button>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="julyDupReviewOverlay" onclick="if(event.target===this) closeJulyDupReview()">
-    <div class="modal-box" style="max-width:720px;">
-      <div class="modal-header">
-        <h3>7월 중복 후보 검토</h3>
-        <button class="modal-close" onclick="closeJulyDupReview()">×</button>
-      </div>
-      <div class="hint" id="julyDupSummary" style="margin-bottom:10px;"></div>
-      <div style="max-height:440px; overflow-y:auto; border:1px solid var(--line); border-radius:8px;">
-        <table style="table-layout:fixed; width:100%;">
-          <colgroup>
-            <col style="width:8%;"><col style="width:13%;"><col style="width:10%;"><col style="width:12%;"><col style="width:38%;"><col style="width:19%;">
-          </colgroup>
-          <thead><tr style="font-size:12px;">
-            <th style="padding:8px 4px; text-align:center;">삭제</th>
-            <th style="padding:8px 4px;">날짜</th>
-            <th style="padding:8px 4px;">구분</th>
-            <th style="padding:8px 4px;">대분류</th>
-            <th style="padding:8px 4px;">내용</th>
-            <th class="num" style="padding:8px 4px;">금액</th>
-          </tr></thead>
-          <tbody id="julyDupReviewBody"></tbody>
-        </table>
-      </div>
-      <div class="modal-footer">
-        <button class="cancel-btn" onclick="closeJulyDupReview()">취소</button>
-        <button class="add-btn" style="background:#b23b3b;" onclick="applyJulyDupReview()">체크한 항목 삭제</button>
       </div>
     </div>
   </div>
@@ -1099,70 +1068,6 @@ function deleteTransaction(i){
 function deleteFixed(i){
   store.fixedExpenses.splice(i,1);
   save(); render();
-}
-// 7월 안에서 "같은 날짜 + 같은 금액"인 거래가 여러 건 있으면 중복 후보로 본다. 구분(다혜/동구/공동)은 일부러
-// 조건에서 뺐다 — 가져오기할 때 로그인한 사람 이름이 기본값으로 깔리는 경우가 있어서, 실제로는 같은 거래인데
-// 구분만 다르게 저장돼 있을 수 있기 때문. 대신 카테고리/메모/구분이 다를 수도 있는 걸 감안해서 자동으로 아무것도
-// 지우지 않고, 전체 후보를 표로 보여준 다음 사람이 직접 체크박스로 골라서 지우게 한다 (기본은 전부 체크된 상태 —
-// 지울 필요 없는 것만 직접 체크 해제).
-let julyDupCandidates = [];
-function openJulyDupReview(){
-  const JULY = 7;
-  const groups = {};
-  store.transactions.forEach((t,i)=>{
-    const parts = parseDateParts(t.date);
-    if(!parts || parts.month !== JULY) return;
-    const key = `${parts.day}|${t.amount}`;
-    (groups[key] = groups[key] || []).push(i);
-  });
-  const dupGroupsArr = Object.values(groups).filter(idxs=>idxs.length>1);
-  if(dupGroupsArr.length === 0){ alert('7월 중 같은 날짜·금액인 후보가 없어요.'); return; }
-
-  julyDupCandidates = [];
-  dupGroupsArr.forEach((idxs, gi)=>{
-    idxs.forEach((i)=>{
-      // 기본은 전부 체크 — 표에서 구분/내용을 직접 보고 지울 필요 없는 것만 체크 해제하게 한다.
-      julyDupCandidates.push({ i, group: gi, checked: true });
-    });
-  });
-  renderJulyDupReview();
-  document.getElementById('julyDupReviewOverlay').classList.add('open');
-}
-function renderJulyDupReview(){
-  const groupCount = new Set(julyDupCandidates.map(c=>c.group)).size;
-  const checkedCount = julyDupCandidates.filter(c=>c.checked).length;
-  document.getElementById('julyDupSummary').textContent =
-    `${groupCount}그룹, 후보 ${julyDupCandidates.length}건 중 ${checkedCount}건 삭제 체크됨 — 각 줄을 보고 체크를 직접 바꿀 수 있어요.`;
-  let lastGroup = null;
-  document.getElementById('julyDupReviewBody').innerHTML = julyDupCandidates.map((c, idx)=>{
-    const t = store.transactions[c.i];
-    const groupStart = c.group !== lastGroup;
-    lastGroup = c.group;
-    const rowStyle = groupStart ? ' style="border-top:2px solid var(--ink);"' : '';
-    return `<tr${rowStyle}>
-      <td style="text-align:center; padding:6px 4px;"><input type="checkbox" ${c.checked?'checked':''} onchange="julyDupCandidates[${idx}].checked=this.checked; renderJulyDupReview();"></td>
-      <td style="padding:6px 4px;">${escHtmlAttr(t.date)}</td>
-      <td style="padding:6px 4px;"><span class="badge ${t.who}">${t.who}</span></td>
-      <td style="padding:6px 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtmlAttr(t.cat)}</td>
-      <td style="padding:6px 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtmlAttr(t.mid||'')}${t.detail?' · '+escHtmlAttr(t.detail):''}</td>
-      <td class="num" style="padding:6px 4px;">${fmt(t.amount)}</td>
-    </tr>`;
-  }).join('');
-}
-function closeJulyDupReview(){
-  document.getElementById('julyDupReviewOverlay').classList.remove('open');
-  julyDupCandidates = [];
-}
-function applyJulyDupReview(){
-  const toRemove = julyDupCandidates.filter(c=>c.checked).map(c=>c.i);
-  if(toRemove.length === 0){ alert('삭제 체크된 항목이 없어요.'); return; }
-  if(!confirm(`체크한 ${toRemove.length}건을 정말 삭제할까요? (되돌리기 버튼으로 한 번에 복구 가능)`)) return;
-  const removeSet = new Set(toRemove);
-  store.transactions = store.transactions.filter((_,i)=>!removeSet.has(i));
-  save();
-  closeJulyDupReview();
-  render();
-  alert(`${toRemove.length}건 삭제했어.`);
 }
 // 고정지출 목록에서 이름이 특정 키워드를 포함하면 하나의 항목으로 묶어서 보여준다 (예: 티머니류 → 교통비).
 // 실제 store.fixedExpenses 데이터는 그대로 각각 따로 저장돼 있고, 화면에 묶어서만 보여주는 것.
