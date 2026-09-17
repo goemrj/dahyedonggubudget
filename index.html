@@ -107,6 +107,8 @@
   .edit-btn{border:none; background:none; cursor:pointer; padding:4px 5px; border-radius:6px; line-height:1; color:#a9c0e3; display:inline-flex; align-items:center; transition:transform .15s, background .15s, color .15s;}
   .edit-btn:hover{transform:scale(1.15); background:#eef1f6; color:#3d7cb0;}
   .del-btn svg, .edit-btn svg{display:block;}
+  .pin-btn{border:1px solid var(--line); border-radius:6px; padding:3px 7px; font-size:10.5px; font-family:inherit; background:#fafbfc; color:var(--sub); cursor:pointer; white-space:nowrap;}
+  .pin-btn.active{background:var(--accent); border-color:var(--accent); color:#fff;}
   .action-cell{white-space:nowrap; vertical-align:middle;}
   .action-cell-inner{display:flex; align-items:center; gap:2px; justify-content:flex-end;}
   .edit-input, .edit-select{border:1px solid var(--line); border-radius:6px; padding:5px 7px; font-size:12.5px; font-family:inherit; width:100%; background:#fafbfc;}
@@ -916,7 +918,9 @@ function normalizeStore(raw){
       }
     });
   }
-  normalized.fixedExpenses.forEach(f=>{ if(!f.who) f.who = '다혜'; });
+  normalized.fixedExpenses.forEach(f=>{ if(!f.who) f.who = '다혜'; if(f.pinned === undefined) f.pinned = true; });
+  // 조회 월을 다음 달로 넘길 때, 이 값보다 이후 달이면 "고정 유지" 안 된 고정지출을 정리한다 (rolloverFixedExpensesIfNeeded).
+  if(!normalized.fixedExpensesMonth) normalized.fixedExpensesMonth = String(new Date().getMonth()+1);
   normalized.savings.forEach(f=>{ if(!f.who) f.who = '다혜'; });
   normalized.incomes.forEach(inc=>{ if(!inc.who) inc.who = '다혜'; });
   if(!normalized.assets) normalized.assets = JSON.parse(JSON.stringify(DEFAULT_DATA.assets));
@@ -1096,13 +1100,19 @@ function addFixedToGroup(who, label){
   const name = nameEl ? nameEl.value.trim() : '';
   const amount = Number(amountEl ? amountEl.value : 0);
   if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
-  store.fixedExpenses.push({day, name, amount, who});
+  store.fixedExpenses.push({day, name, amount, who, pinned:false});
   save();
   render();
 }
 let editingFixedIndex = null;
 function editFixed(i){ editingFixedIndex = i; render(); }
 function cancelEditFixed(){ editingFixedIndex = null; render(); }
+function toggleFixedPin(i){
+  if(!store.fixedExpenses[i]) return;
+  store.fixedExpenses[i].pinned = !store.fixedExpenses[i].pinned;
+  save();
+  render();
+}
 function saveEditFixed(i){
   const day = document.getElementById('edit_fx_day_'+i).value.trim();
   const name = document.getElementById('edit_fx_name_'+i).value.trim();
@@ -1110,7 +1120,8 @@ function saveEditFixed(i){
   if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
   const whoSelect = document.getElementById('edit_fx_who_'+i);
   const who = whoSelect ? whoSelect.value : (store.fixedExpenses[i] ? store.fixedExpenses[i].who : '다혜');
-  store.fixedExpenses[i] = {day, name, amount, who};
+  const pinned = store.fixedExpenses[i] ? store.fixedExpenses[i].pinned : false;
+  store.fixedExpenses[i] = {day, name, amount, who, pinned};
   save();
   editingFixedIndex = null;
   render();
@@ -1368,7 +1379,22 @@ function extractMonth(dateStr){
   const parts = parseDateParts(dateStr);
   return parts ? String(parts.month) : null;
 }
-function onMonthChange(v){ selectedMonth = v; render(); }
+// 조회 월을 앞으로(더 늦은 달로) 넘길 때만 동작. "고정 유지" 체크 안 된 고정지출은 정리하고,
+// 과거 달로 다시 돌아가서 보는 건(뒤로 가기) 정리 대상이 아니다.
+function rolloverFixedExpensesIfNeeded(newMonth){
+  if(newMonth === 'all') return;
+  const next = Number(newMonth);
+  const cur = Number(store.fixedExpensesMonth);
+  if(!next || (cur && next <= cur)) return;
+  store.fixedExpenses = store.fixedExpenses.filter(f=>f.pinned);
+  store.fixedExpensesMonth = String(next);
+  save();
+}
+function onMonthChange(v){
+  rolloverFixedExpensesIfNeeded(v);
+  selectedMonth = v;
+  render();
+}
 
 function dateSortKey(dateStr){
   const parts = parseDateParts(dateStr);
@@ -1710,7 +1736,7 @@ function submitAddModal(){
     const amount = Number(document.getElementById('am_fx_amount').value);
     const who = document.getElementById('am_fx_who').value;
     if(!name || !amount){ alert('내용, 금액은 꼭 입력해줘'); return; }
-    store.fixedExpenses.push({day, name, amount, who});
+    store.fixedExpenses.push({day, name, amount, who, pinned:false});
   } else if(type === 'saving'){
     const day = document.getElementById('am_sv_day').value.trim();
     const name = document.getElementById('am_sv_name').value.trim();
@@ -1900,9 +1926,17 @@ function parseHtmlBankFile(text){
 function isDuplicateTx(date, amount){
   return store.transactions.some(t => t.date === date && Number(t.amount) === Number(amount));
 }
+// 키워드로 카테고리를 못 정했을 때, 같은 가맹점명(중분류)이 과거에 "식사"로 2번 이상 저장된 적 있으면
+// 자동으로 "식사"로 채워준다 (식당은 상호명이 제각각이라 키워드만으로는 못 잡는 경우가 많아서).
+function guessCategoryFromHistory(merchant){
+  const name = String(merchant||'').trim();
+  if(!name) return '';
+  const mealCount = store.transactions.filter(t => t.mid === name && t.cat === '식사').length;
+  return mealCount >= 2 ? '식사' : '';
+}
 function buildParsedRowsFromBankRows(bankRows, defaultWho){
   importParsedRows = bankRows.map(r=>{
-    const cat = guessCategory(r.merchant);
+    const cat = guessCategory(r.merchant) || guessCategoryFromHistory(r.merchant);
     const valid = !!(r.date && cat && r.amount && !isNaN(r.amount) && r.amount > 0);
     return {
       date: r.date, cat, mid: r.merchant, detail:'', amount: r.amount, who: defaultWho || '공동',
@@ -2105,7 +2139,7 @@ function confirmImport(){
   let txCount = 0, fixedCount = 0;
   validRows.forEach(r=>{
     if(r.cat === '고정지출'){
-      store.fixedExpenses.push({day: dateToFixedDay(r.date), name: r.mid, amount: r.amount, who: r.who});
+      store.fixedExpenses.push({day: dateToFixedDay(r.date), name: r.mid, amount: r.amount, who: r.who, pinned:false});
       fixedCount++;
     } else {
       store.transactions.push({date:r.date, cat:r.cat, mid:r.mid, detail:r.detail||'', amount:r.amount, who:r.who});
@@ -2473,6 +2507,7 @@ function render(){
     }
     return `<tr><td>${f.day||''}</td><td>${f.name}</td><td class="num">${fmt(f.amount)}</td>
      <td class="action-cell"><div class="action-cell-inner">
+       <button type="button" class="pin-btn ${f.pinned?'active':''}" title="${f.pinned ? '다음 달에도 자동으로 유지돼요. 눌러서 해제할 수 있어요' : '이번 달만 나가고 다음 달엔 자동으로 삭제돼요. 눌러서 계속 유지되게 할 수 있어요'}" onclick="toggleFixedPin(${i})">고정</button>
        <button class="edit-btn" title="수정" onclick="editFixed(${i})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
        <button class="del-btn" title="삭제" onclick="deleteFixed(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
      </div></td></tr>`;
@@ -2488,6 +2523,7 @@ function render(){
     const detailHtml = groupItems.map(({f,i})=>
       `<div class="cat-detail-row"><span>${f.day ? escHtmlAttr(f.day)+' · ' : ''}${escHtmlAttr(f.name)}</span>
         <span style="display:flex;align-items:center;gap:6px;">${fmt(f.amount)}원
+          <button type="button" class="pin-btn ${f.pinned?'active':''}" title="${f.pinned ? '다음 달에도 자동으로 유지돼요. 눌러서 해제할 수 있어요' : '이번 달만 나가고 다음 달엔 자동으로 삭제돼요. 눌러서 계속 유지되게 할 수 있어요'}" onclick="toggleFixedPin(${i})">고정</button>
           <button type="button" class="del-btn" title="삭제" onclick="deleteFixed(${i})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
         </span></div>`
     ).join('');
